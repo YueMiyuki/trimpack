@@ -2,7 +2,6 @@
 
 > Trim the fat from your dependencies - Pack only what your code actually uses
 
-
 ## Features
 
 - 🎯 **Smart Dependency Detection** - Automatically analyzes your code to find only the dependencies you actually use
@@ -211,6 +210,7 @@ MIT © [YueMiyuki](https://github.com/YueMiyuki)
 ## Support
 
 - 🐛 Issues: [GitHub Issues](https://github.com/YueMiyuki/trimpack/issues)
+
 ---
 
 Made with ❤️ by YueMiyuki

@@ -81,6 +81,6 @@
   },
   "lint-staged": {
     "**/*.{js,ts}": "eslint --fix",
-    "**/*.{js,ts,json,yaml,css,md}": "prettier -w"
+    "**/*.{js,ts,json,yaml,css,md,mjs}": "prettier -w"
   }
 }
