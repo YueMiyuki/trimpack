@@ -20,7 +20,7 @@ jobs:
       # Install dependencies
       - run:
           name: "Install dependencies"
-          command: "HUSKY=0 pnpm install --dev --frozen-lockfile"
+          command: "HUSKY=0 pnpm install --frozen-lockfile"
 
       # Run all tests
       - run:
