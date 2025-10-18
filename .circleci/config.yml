@@ -12,7 +12,7 @@ jobs:
       - run:
           name: Install pnpm package manager
           command: |
-            sudo npm install --global corepack@latest
+            npm install --global corepack@latest
             corepack enable
             corepack prepare pnpm@latest-10 --activate
             pnpm config set store-dir .pnpm-store
