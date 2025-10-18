@@ -10,8 +10,12 @@ jobs:
 
       # Install pnpm
       - run:
-          name: "Install pnpm"
-          command: "npm install -g pnpm@latest"
+          name: Install pnpm package manager
+          command: |
+            npm install --global corepack@latest
+            corepack enable
+            corepack prepare pnpm@latest-10 --activate
+            pnpm config set store-dir .pnpm-store
 
       # Install dependencies
       - run:
