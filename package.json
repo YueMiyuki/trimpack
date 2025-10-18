@@ -1,0 +1,62 @@
+{
+  "name": "trimpack",
+  "version": "1.0.0",
+  "description": "Automatic monorepo dependency packer - Bundle and pack only the dependencies your code actually uses",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "monorepo",
+    "dependencies",
+    "packer",
+    "bundler",
+    "dependency-analysis",
+    "tree-shaking",
+    "optimization",
+    "esbuild",
+    "package-management",
+    "build-tool",
+    "dependency-management",
+    "npm",
+    "pnpm",
+    "yarn",
+    "workspace"
+  ],
+  "author": "YueMiyuki <me@miyuki-yue.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YueMiyuki/trimpack.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YueMiyuki/trimpack/issues"
+  },
+  "homepage": "https://github.com/YueMiyuki/trimpack#readme",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prebuild": "pnpm run clean",
+    "dev": "tsx src/cli.ts",
+    "test:cli": "pnpm run build && node test/test-all-options.js",
+    "test:api": "pnpm run build && node test/test-programmatic-api.js",
+    "test:config": "pnpm run build && node test/test-config-files.js",
+    "test:all": "pnpm run test:cli && pnpm run test:api && pnpm run test:config",
+    "test:example": "pnpm run build && node examples/basic.js src/index.ts packed.json",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build && pnpm run test:all",
+    "prepare": "pnpm dlx husky install",
+    "lint": "pnpm dlx lint-staged"
+  }
+}

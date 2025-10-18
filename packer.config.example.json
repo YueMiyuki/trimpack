@@ -1,0 +1,18 @@
+{
+  "output": "dist",
+  "bundle": false,
+  "minify": false,
+  "format": "esm",
+  "target": "node18",
+  "platform": "node",
+  "includeDevDependencies": false,
+  "sourcemap": false,
+  "verbose": false,
+  "clean": true,
+  "preserveSymlinks": false,
+  "external": ["aws-sdk", "node:*"],
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
