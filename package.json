@@ -60,7 +60,7 @@
     "test:example": "pnpm run build && node examples/basic.js src/index.ts packed.json",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build && pnpm run test:all",
-    "prepare": "pnpm dlx husky install",
+    "prepare": "pnpm dlx husky",
     "lint": "pnpm dlx lint-staged"
   },
   "dependencies": {
