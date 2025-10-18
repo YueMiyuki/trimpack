@@ -367,9 +367,10 @@ function testInvalidConfigHandling() {
     unlinkSync(".deppackrc.json");
   }
 
-  // Invalid config should be ignored and default to package.json
-  if (existsSync("package.json")) {
+  // Invalid config should be ignored and default to deps.json
+  if (existsSync("deps.json")) {
     printPass("Invalid config file handled gracefully");
+    unlinkSync("deps.json");
   } else {
     printFail("Invalid config caused failure");
   }

@@ -266,7 +266,7 @@ async function main(): Promise<void> {
     // Map CLI arguments to options
     const options: PackerOptions = {
       ...config,
-      output: (values.output as string) || config.output || "package.json",
+      output: (values.output as string) || config.output || "deps.json",
       includeDevDependencies:
         (values["include-dev"] as boolean) ||
         config.includeDevDependencies ||

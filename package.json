@@ -52,11 +52,30 @@
     "test:cli": "pnpm run build && node test/test-all-options.js",
     "test:api": "pnpm run build && node test/test-programmatic-api.js",
     "test:config": "pnpm run build && node test/test-config-files.js",
-    "test:all": "pnpm run test:cli && pnpm run test:api && pnpm run test:config",
+    "test:all": "pnpm run typecheck && pnpm run test:cli && pnpm run test:api && pnpm run test:config",
     "test:example": "pnpm run build && node examples/basic.js src/index.ts packed.json",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build && pnpm run test:all",
     "prepare": "pnpm dlx husky install",
     "lint": "pnpm dlx lint-staged"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "esbuild": "^0.25.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.4.0",
+    "husky": "^9.1.7",
+    "jiti": "^2.6.1",
+    "lint-staged": "^16.2.4",
+    "prettier": "3.6.2",
+    "typescript-eslint": "^8.46.1"
+  },
+  "lint-staged": {
+    "**/*.{js,ts}": "eslint --fix",
+    "**/*.{js,ts,json,yaml,css,md}": "prettier -w"
   }
 }

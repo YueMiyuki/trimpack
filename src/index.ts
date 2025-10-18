@@ -32,7 +32,7 @@ export class DependencyPacker {
     this.logger = new Logger({ silent: options.json ?? false });
 
     this.options = {
-      output: options.output ?? "package.json",
+      output: options.output ?? "deps.json",
       external: options.external ?? ["node:*"],
       includeDevDependencies: options.includeDevDependencies ?? false,
       includePeerDependencies: options.includePeerDependencies ?? false,
