@@ -17,6 +17,9 @@ importers:
       "@eslint/js":
         specifier: ^9.38.0
         version: 9.38.0
+      "@types/node":
+        specifier: ^24.8.1
+        version: 24.8.1
       eslint:
         specifier: ^9.38.0
         version: 9.38.0(jiti@2.6.1)
@@ -401,6 +404,12 @@ packages:
     resolution:
       {
         integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==,
+      }
+
+  "@types/node@24.8.1":
+    resolution:
+      {
+        integrity: sha512-alv65KGRadQVfVcG69MuB4IzdYVpRwMG/mq8KWOaoOdyY617P5ivaDiMCGOFDWD2sAn5Q0mR3mRtUOgm99hL9Q==,
       }
 
   "@typescript-eslint/eslint-plugin@8.46.1":
@@ -1337,6 +1346,12 @@ packages:
     engines: { node: ">=14.17" }
     hasBin: true
 
+  undici-types@7.14.0:
+    resolution:
+      {
+        integrity: sha512-QQiYxHuyZ9gQUIrmPo3IA+hUl4KYk8uSA7cHrcKd/l3p1OTpZcM0Tbp9x7FAtXdAYhlasd60ncPpgu6ihG6TOA==,
+      }
+
   uri-js@4.4.1:
     resolution:
       {
@@ -1531,6 +1546,10 @@ snapshots:
   "@types/estree@1.0.8": {}
 
   "@types/json-schema@7.0.15": {}
+
+  "@types/node@24.8.1":
+    dependencies:
+      undici-types: 7.14.0
 
   "@typescript-eslint/eslint-plugin@8.46.1(@typescript-eslint/parser@8.46.1(eslint@9.38.0(jiti@2.6.1))(typescript@5.9.3))(eslint@9.38.0(jiti@2.6.1))(typescript@5.9.3)":
     dependencies:
@@ -2096,6 +2115,8 @@ snapshots:
       - supports-color
 
   typescript@5.9.3: {}
+
+  undici-types@7.14.0: {}
 
   uri-js@4.4.1:
     dependencies:

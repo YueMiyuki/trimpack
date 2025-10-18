@@ -1,0 +1,33 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:lts
+
+    steps:
+      - checkout
+
+      # Install pnpm
+      - run:
+          name: Install pnpm package manager
+          command: |
+            sudo npm install --global corepack@latest typescript
+            corepack enable
+            corepack prepare pnpm@latest-10 --activate
+            pnpm config set store-dir .pnpm-store
+
+      # Install dependencies
+      - run:
+          name: "Install dependencies"
+          command: "HUSKY=0 pnpm install --frozen-lockfile"
+
+      # Run all tests
+      - run:
+          name: "Run tests"
+          command: "pnpm test:all"
+
+workflows:
+  test-workflow:
+    jobs:
+      - test
