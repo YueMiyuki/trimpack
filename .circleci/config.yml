@@ -20,7 +20,7 @@ jobs:
       # Install dependencies
       - run:
           name: "Install dependencies"
-          command: "pnpm install --frozen-lockfile"
+          command: "pnpm install --dev --frozen-lockfile"
 
       # Run all tests
       - run:
