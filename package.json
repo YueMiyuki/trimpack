@@ -1,6 +1,6 @@
 {
   "name": "trimpack",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatic monorepo dependency packer - Bundle and pack only the dependencies your code actually uses",
   "type": "module",
   "engines": {
