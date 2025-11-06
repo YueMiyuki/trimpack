@@ -78,52 +78,19 @@ export class DependencyPacker {
       // Load root package.json
       this.rootPackageJson = this.loadPackageJson(process.cwd());
 
-      // Analyze dependencies
+      // Analyze dependencies and optionally collect assets
       const dependencies = await this.analyzeDependencies(entry, options);
-      // Optionally collect asset references
-      const assets = options.includeAssets
-        ? await this.collectAssets(entry, options)
-        : [];
+      const assets = await this.maybeCollectAssets(entry, options);
 
-      // Generate or merge package.json
-      let packageJson: PackageJson;
-
-      if (options.merge && existsSync(options.output)) {
-        // Merge with existing package.json
-        const existing = JSON.parse(
-          readFileSync(options.output, "utf8"),
-        ) as PackageJson;
-        packageJson = this.mergePackageJson(existing, dependencies, options);
-      } else if (options.minimalOutput) {
-        // Minimal output - only dependencies
-        packageJson = {
-          dependencies: Object.fromEntries(dependencies),
-        };
-      } else {
-        // Generate new package.json
-        packageJson = this.generatePackageJson(dependencies, options);
-      }
-
-      // If including assets, attach to package.json output
-      const attachAssets = (pkg: PackageJson) => {
-        if (options.includeAssets) {
-          (pkg as Record<string, unknown>)[options.assetsField] = assets;
-        }
-      };
+      // Assemble package.json (merge/new/minimal) and attach assets
+      const packageJson = this.assemblePackageJson(
+        dependencies,
+        assets,
+        options,
+      );
 
       // Output handling
-      if (!options.noWrite) {
-        if (options.json) {
-          // Output to stdout as JSON (CLI-oriented)
-          attachAssets(packageJson);
-          console.log(JSON.stringify(packageJson, null, 2));
-        } else {
-          // Write to file
-          attachAssets(packageJson);
-          writeFileSync(options.output, JSON.stringify(packageJson, null, 2));
-          this.log(`Package.json written to: ${options.output}`, "success");
-        }
-      }
+      this.emitOutput(packageJson, options);
 
       // Generate report
       const report = this.generateReport(dependencies, startTime);
@@ -136,7 +103,6 @@ export class DependencyPacker {
       }
 
       // Always include assets on returned object
-      attachAssets(packageJson);
       return {
         dependencies: Array.from(dependencies.entries()),
         packageJson,
@@ -208,6 +174,14 @@ export class DependencyPacker {
     return dependencies;
   }
 
+  private async maybeCollectAssets(
+    entry: string,
+    options: InternalOptions,
+  ): Promise<string[]> {
+    if (!options.includeAssets) return [];
+    return this.collectAssets(entry, options);
+  }
+
   private processPaths(
     paths: Iterable<string>,
     dependencies: DependencyMap,
@@ -245,6 +219,42 @@ export class DependencyPacker {
     });
     const result = await analyzer.analyze(entry);
     return Array.from(result.assets);
+  }
+
+  private assemblePackageJson(
+    dependencies: DependencyMap,
+    assets: string[],
+    options: InternalOptions,
+  ): PackageJson {
+    let packageJson: PackageJson;
+
+    if (options.merge && existsSync(options.output)) {
+      const existing = JSON.parse(
+        readFileSync(options.output, "utf8"),
+      ) as PackageJson;
+      packageJson = this.mergePackageJson(existing, dependencies, options);
+    } else if (options.minimalOutput) {
+      packageJson = {
+        dependencies: Object.fromEntries(dependencies),
+      };
+    } else {
+      packageJson = this.generatePackageJson(dependencies, options);
+    }
+
+    if (options.includeAssets) {
+      (packageJson as Record<string, unknown>)[options.assetsField] = assets;
+    }
+    return packageJson;
+  }
+
+  private emitOutput(packageJson: PackageJson, options: InternalOptions): void {
+    if (options.noWrite) return;
+    if (options.json) {
+      console.log(JSON.stringify(packageJson, null, 2));
+      return;
+    }
+    writeFileSync(options.output, JSON.stringify(packageJson, null, 2));
+    this.log(`Package.json written to: ${options.output}`, "success");
   }
 
   private extractPackageInfo(modulePath: string): ExtractedPackageInfo | null {

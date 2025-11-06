@@ -5,7 +5,7 @@ import { resolve, dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { DependencyPacker } from "./index.js";
-import type { PackerOptions, PackageJson } from "./types.js";
+import type { PackerOptions, PackageJson, PackResult } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -248,117 +248,19 @@ async function main(): Promise<void> {
 
     const entryFile = positionals[0];
 
-    // Load configuration
-    let config: PackerOptions = {};
-
-    // Try to load default config files
-    const defaultConfigs = [
-      ".deppackrc.json",
-      "deppack.config.json",
-      "package.json",
-    ];
-    for (const configFile of defaultConfigs) {
-      if (existsSync(configFile)) {
-        try {
-          const content = JSON.parse(readFileSync(configFile, "utf8"));
-
-          // For package.json, look for deppack config
-          if (configFile === "package.json" && content.deppack) {
-            config = content.deppack;
-            if (values.verbose) {
-              console.error(color(`📄 Loaded config from package.json`, "dim"));
-            }
-            break;
-          } else if (configFile !== "package.json") {
-            config = content;
-            if (values.verbose) {
-              console.error(
-                color(`📄 Loaded config from ${configFile}`, "dim"),
-              );
-            }
-            break;
-          }
-        } catch {
-          // Ignore parsing errors for auto-detected configs
-        }
-      }
-    }
-
-    // Override with explicit config file if provided
-    if (values.config) {
-      config = { ...config, ...loadConfig(values.config as string) };
-    }
+    // Load configuration (defaults + explicit)
+    const config: PackerOptions = loadMergedConfig(values);
 
     // Map CLI arguments to options
     // Parse argv for flags whose presence matters (e.g., include-assets)
     const argvFlags = process.argv.slice(2);
 
-    const options: PackerOptions = {
-      ...config,
-      output: (values.output as string) || config.output || "deps.json",
-      includeDevDependencies:
-        (values["include-dev"] as boolean) ||
-        config.includeDevDependencies ||
-        false,
-      includePeerDependencies:
-        (values["include-peer"] as boolean) ||
-        config.includePeerDependencies ||
-        false,
-      merge: (values.merge as boolean) || config.merge || false,
-      minimalOutput:
-        (values.minimal as boolean) || config.minimalOutput || false,
-      json: (values.json as boolean) || config.json || false,
-      verbose: (values.verbose as boolean) || config.verbose || false,
-      // Respect explicit CLI presence over config for include-assets
-      includeAssets: (() => {
-        const hasCliFlag = process.argv
-          .slice(2)
-          .some(
-            (arg) =>
-              arg === "--include-assets" ||
-              arg === "--no-include-assets" ||
-              arg.startsWith("--include-assets="),
-          );
-        if (hasCliFlag) return Boolean(values["include-assets"]);
-        return config.includeAssets ?? false;
-      })(),
-      // Prefer explicit CLI assets-field when provided; detect flag presence explicitly
-      assetsField: (() => {
-        const hasCliFlag = argvFlags.some(
-          (arg) =>
-            arg === "--assets-field" || arg.startsWith("--assets-field="),
-        );
-        if (hasCliFlag) return values["assets-field"] as string;
-        return (config.assetsField ?? "externalAssets") as string;
-      })(),
-      // Engine will be validated immediately after options mapping
-      engine: (Object.prototype.hasOwnProperty.call(values, "engine")
-        ? (values.engine as string)
-        : (config.engine ?? "trace")) as unknown as "trace" | "asset",
-      preserveFields: [
-        ...((values["preserve-fields"] as string[]) || []),
-        ...(config.preserveFields || []),
-      ],
-      external: [
-        ...((values.external as string[]) || []),
-        ...(config.external || []),
-        "node:*",
-      ],
-    };
-
-    // Validate engine option immediately after mapping
-    {
-      const rawEngine = Object.prototype.hasOwnProperty.call(values, "engine")
-        ? String(values.engine)
-        : String(config.engine ?? "trace");
-      const allowed = new Set(["trace", "asset"]);
-      if (!allowed.has(rawEngine)) {
-        throw new Error(
-          `Invalid value for --engine: "${rawEngine}". Allowed values: trace | asset`,
-        );
-      }
-      options.engine = rawEngine as "trace" | "asset";
-    }
+    const options: PackerOptions = buildOptionsFromArgs(
+      values,
+      config,
+      argvFlags,
+    );
+    validateEngineOption(values, config, options);
 
     // Don't show verbose output in JSON mode
     if (!options.json) {
@@ -379,47 +281,11 @@ async function main(): Promise<void> {
     }
 
     // Create packer instance and run
-    const packer = new DependencyPacker(options);
-    const result = await packer.pack(entryFile!);
+    const result = await runPacker(entryFile!, options);
 
     // Display results (only if not in JSON mode)
     if (!options.json) {
-      console.error();
-      console.error(color("📊 Results:", "bright"));
-      console.error(`  Dependencies found: ${result.dependencies.length}`);
-      console.error(`  Output written to: ${result.outputFile}`);
-
-      if (options.includeAssets) {
-        const field = options.assetsField || "externalAssets";
-        const assets = (result.packageJson as Record<string, unknown>)[
-          field
-        ] as string[] | undefined;
-        const count = Array.isArray(assets) ? assets.length : 0;
-        console.error(`  Assets found: ${count}`);
-      }
-
-      if (options.verbose) {
-        console.error();
-        console.error(color("📦 Dependencies:", "dim"));
-        result.dependencies.forEach(([name, version]) => {
-          console.error(`  - ${name}@${version}`);
-        });
-
-        if (options.includeAssets) {
-          const field = options.assetsField || "externalAssets";
-          const assets = (result.packageJson as Record<string, unknown>)[
-            field
-          ] as string[] | undefined;
-          if (assets && assets.length) {
-            console.error();
-            console.error(color("🗂 Assets:", "dim"));
-            assets.forEach((a) => console.error(`  - ${a}`));
-          }
-        }
-      }
-
-      console.error();
-      console.error(color("✨ Analysis completed successfully!", "green"));
+      printResults(result, options);
     }
 
     // Exit successfully
@@ -440,6 +306,163 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 }
+
+// --------------------
+// Helper functions
+// --------------------
+
+function loadMergedConfig(values: Record<string, unknown>): PackerOptions {
+  let config: PackerOptions = {};
+
+  const defaultConfigs = [
+    ".deppackrc.json",
+    "deppack.config.json",
+    "package.json",
+  ];
+  for (const configFile of defaultConfigs) {
+    if (!existsSync(configFile)) continue;
+    try {
+      const content = JSON.parse(readFileSync(configFile, "utf8"));
+      if (configFile === "package.json" && content.deppack) {
+        config = content.deppack as PackerOptions;
+        if (values.verbose) {
+          console.error(color(`📄 Loaded config from package.json`, "dim"));
+        }
+        break;
+      } else if (configFile !== "package.json") {
+        config = content as PackerOptions;
+        if (values.verbose) {
+          console.error(color(`📄 Loaded config from ${configFile}`, "dim"));
+        }
+        break;
+      }
+    } catch {
+      // ignore auto-detected parse errors
+    }
+  }
+
+  if (values.config) {
+    config = { ...config, ...loadConfig(values.config as string) };
+  }
+  return config;
+}
+
+function buildOptionsFromArgs(
+  values: Record<string, unknown>,
+  config: PackerOptions,
+  argvFlags: string[],
+): PackerOptions {
+  return {
+    ...config,
+    output: (values.output as string) || config.output || "deps.json",
+    includeDevDependencies:
+      (values["include-dev"] as boolean) ||
+      config.includeDevDependencies ||
+      false,
+    includePeerDependencies:
+      (values["include-peer"] as boolean) ||
+      config.includePeerDependencies ||
+      false,
+    merge: (values.merge as boolean) || config.merge || false,
+    minimalOutput: (values.minimal as boolean) || config.minimalOutput || false,
+    json: (values.json as boolean) || config.json || false,
+    verbose: (values.verbose as boolean) || config.verbose || false,
+    includeAssets: (() => {
+      const hasCliFlag = process.argv
+        .slice(2)
+        .some(
+          (arg) =>
+            arg === "--include-assets" ||
+            arg === "--no-include-assets" ||
+            arg.startsWith("--include-assets="),
+        );
+      if (hasCliFlag) return Boolean(values["include-assets"]);
+      return config.includeAssets ?? false;
+    })(),
+    assetsField: (() => {
+      const hasCliFlag = argvFlags.some(
+        (arg) => arg === "--assets-field" || arg.startsWith("--assets-field="),
+      );
+      if (hasCliFlag) return values["assets-field"] as string;
+      return (config.assetsField ?? "externalAssets") as string;
+    })(),
+    engine: (Object.prototype.hasOwnProperty.call(values, "engine")
+      ? (values.engine as string)
+      : (config.engine ?? "trace")) as unknown as "trace" | "asset",
+    preserveFields: [
+      ...((values["preserve-fields"] as string[]) || []),
+      ...(config.preserveFields || []),
+    ],
+    external: [
+      ...((values.external as string[]) || []),
+      ...(config.external || []),
+      "node:*",
+    ],
+  };
+}
+
+function validateEngineOption(
+  values: Record<string, unknown>,
+  config: PackerOptions,
+  options: PackerOptions,
+): void {
+  const rawEngine = Object.prototype.hasOwnProperty.call(values, "engine")
+    ? String(values.engine)
+    : String(config.engine ?? "trace");
+  const allowed = new Set(["trace", "asset"]);
+  if (!allowed.has(rawEngine)) {
+    throw new Error(
+      `Invalid value for --engine: "${rawEngine}". Allowed values: trace | asset`,
+    );
+  }
+  options.engine = rawEngine as "trace" | "asset";
+}
+
+async function runPacker(entryFile: string, options: PackerOptions) {
+  const packer = new DependencyPacker(options);
+  return packer.pack(entryFile);
+}
+
+function printResults(result: PackResult, options: PackerOptions): void {
+  console.error();
+  console.error(color("📊 Results:", "bright"));
+  console.error(`  Dependencies found: ${result.dependencies.length}`);
+  console.error(`  Output written to: ${result.outputFile}`);
+
+  if (options.includeAssets) {
+    const field = options.assetsField || "externalAssets";
+    const assets = (result.packageJson as Record<string, unknown>)[field] as
+      | string[]
+      | undefined;
+    const count = Array.isArray(assets) ? assets.length : 0;
+    console.error(`  Assets found: ${count}`);
+  }
+
+  if (options.verbose) {
+    console.error();
+    console.error(color("📦 Dependencies:", "dim"));
+    result.dependencies.forEach(([name, version]) => {
+      console.error(`  - ${name}@${version}`);
+    });
+
+    if (options.includeAssets) {
+      const field = options.assetsField || "externalAssets";
+      const assets = (result.packageJson as Record<string, unknown>)[field] as
+        | string[]
+        | undefined;
+      if (assets && assets.length) {
+        console.error();
+        console.error(color("🗂 Assets:", "dim"));
+        assets.forEach((a) => console.error(`  - ${a}`));
+      }
+    }
+  }
+
+  console.error();
+  console.error(color("✨ Analysis completed successfully!", "green"));
+}
+
+// (no helper types required)
 
 // Handle uncaught errors
 process.on("uncaughtException", (error: Error) => {

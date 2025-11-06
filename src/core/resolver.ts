@@ -260,103 +260,110 @@ async function resolvePackageExports(
   const subpath = getSubpathFromSpec(spec);
   const key = subpath ? "." + subpath : ".";
 
-  let target: string | null = null;
+  // 1) Try to derive a mapping from exports
+  let target = deriveExportTarget(exportsField, key, preferImport);
 
-  if (exportsField) {
-    if (typeof exportsField === "string") {
-      target = exportsField;
-    } else if (
-      typeof exportsField === "object" &&
-      exportsField !== null &&
-      !Array.isArray(exportsField)
-    ) {
-      const exportsObj = exportsField as Record<string, unknown>;
-      const entryVal = exportsObj[key] ?? (subpath ? null : exportsObj["."]);
-      if (typeof entryVal === "string") target = entryVal;
-      else if (
-        entryVal &&
-        typeof entryVal === "object" &&
-        !Array.isArray(entryVal)
-      ) {
-        const entryObj = entryVal as Record<string, unknown>;
-        // choose condition
-        const order = preferImport
-          ? ["import", "default", "require"]
-          : ["require", "default", "import"];
-        for (const cond of order) {
-          const val = entryObj[cond];
-          if (typeof val === "string") {
-            target = val;
-            break;
-          }
-        }
-        if (!target) {
-          // fall back to first string value
-          for (const k of Object.keys(entryObj)) {
-            const val = entryObj[k];
-            if (typeof val === "string") {
-              target = val;
-              break;
-            }
-          }
-        }
-      }
-
-      // If no exact match found, try wildcard pattern keys like "./*" or "./foo/*"
-      if (!target) {
-        const order = preferImport
-          ? ["import", "default", "require"]
-          : ["require", "default", "import"];
-
-        const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const tryWildcard = (patKey: string, val: unknown): string | null => {
-          // Only support single-asterisk patterns per key (Node allows this common case)
-          if (!patKey.includes("*")) return null;
-          const re = new RegExp(
-            "^" + esc(patKey).replace(/\\\*/g, "(.+)") + "$",
-          );
-          const m = re.exec(key);
-          if (!m || typeof m[1] !== "string") return null;
-          const star: string = m[1];
-          const replaceStar = (t: string) => t.replace(/\*/g, star);
-          if (typeof val === "string") return replaceStar(val);
-          if (val && typeof val === "object" && !Array.isArray(val)) {
-            const obj = val as Record<string, unknown>;
-            for (const cond of order) {
-              const v = obj[cond];
-              if (typeof v === "string") return replaceStar(v);
-            }
-            for (const k of Object.keys(obj)) {
-              const v = obj[k];
-              if (typeof v === "string") return replaceStar(v);
-            }
-          }
-          return null;
-        };
-
-        for (const [k, v] of Object.entries(exportsObj)) {
-          const mapped = tryWildcard(k, v);
-          if (mapped) {
-            target = mapped;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // Only fall back to main/index when resolving the package root (no subpath)
+  // 2) Fall back to main/index only for the root (no subpath)
   if (!target && subpath === "" && mainField) target = mainField;
   if (!target && subpath === "") target = "index.js";
 
-  // If no mapping was found (e.g., unresolved subpath), stop here
+  // 3) If no mapping still, give up
   if (!target) return null;
 
-  // Join with pkg root
+  // 4) Normalize and attempt to resolve to an on-disk file
   if (target.startsWith("./")) target = target.slice(2);
   const full = joinPath(pkgRoot, target);
+  return await tryResolveWithExtensions(full, fs);
+}
 
-  // Try as-is then add extension/index fallbacks
+// Prefer import/default/require (or the inverse) and handle wildcard keys
+function deriveExportTarget(
+  exportsField: unknown,
+  key: string,
+  preferImport: boolean,
+): string | null {
+  if (!exportsField) return null;
+
+  if (typeof exportsField === "string") {
+    return exportsField;
+  }
+
+  if (typeof exportsField !== "object" || exportsField === null) {
+    return null;
+  }
+
+  const exportsObj = exportsField as Record<string, unknown>;
+  const entryVal = exportsObj[key] ?? exportsObj["."];
+  const order = preferImport
+    ? ["import", "default", "require"]
+    : ["require", "default", "import"];
+
+  // Exact key match
+  const fromEntry = pickStringFromEntry(entryVal, order);
+  if (fromEntry) return fromEntry;
+
+  // Wildcard match like "./*"
+  return matchWildcard(exportsObj, key, order);
+}
+
+function pickStringFromEntry(
+  entryVal: unknown,
+  order: string[],
+): string | null {
+  if (typeof entryVal === "string") return entryVal;
+  if (entryVal && typeof entryVal === "object" && !Array.isArray(entryVal)) {
+    const entryObj = entryVal as Record<string, unknown>;
+    for (const cond of order) {
+      const val = entryObj[cond];
+      if (typeof val === "string") return val;
+    }
+    for (const k of Object.keys(entryObj)) {
+      const val = entryObj[k];
+      if (typeof val === "string") return val;
+    }
+  }
+  return null;
+}
+
+function matchWildcard(
+  exportsObj: Record<string, unknown>,
+  key: string,
+  order: string[],
+): string | null {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tryWildcard = (patKey: string, val: unknown): string | null => {
+    if (!patKey.includes("*")) return null;
+    const re = new RegExp("^" + esc(patKey).replace(/\\\*/g, "(.+)") + "$");
+    const m = re.exec(key);
+    if (!m || typeof m[1] !== "string") return null;
+    const star: string = m[1];
+    const replaceStar = (t: string) => t.replace(/\*/g, star);
+    if (typeof val === "string") return replaceStar(val);
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const obj = val as Record<string, unknown>;
+      for (const cond of order) {
+        const v = obj[cond];
+        if (typeof v === "string") return replaceStar(v);
+      }
+      for (const k of Object.keys(obj)) {
+        const v = obj[k];
+        if (typeof v === "string") return replaceStar(v);
+      }
+    }
+    return null;
+  };
+
+  for (const [k, v] of Object.entries(exportsObj)) {
+    const mapped = tryWildcard(k, v);
+    if (mapped) return mapped;
+  }
+  return null;
+}
+
+async function tryResolveWithExtensions(
+  full: string,
+  fs: FsCache,
+): Promise<string | null> {
   const tried = new Set<string>();
   const tryList = [
     full,
