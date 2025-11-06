@@ -306,14 +306,21 @@ async function main(): Promise<void> {
         (values.minimal as boolean) || config.minimalOutput || false,
       json: (values.json as boolean) || config.json || false,
       verbose: (values.verbose as boolean) || config.verbose || false,
-      includeAssets:
-        (values["include-assets"] as boolean) || config.includeAssets || false,
-      assetsField: ((values["assets-field"] as string) ||
-        config.assetsField ||
-        "externalAssets") as string,
-      engine: ((values.engine as string) || config.engine || "trace") as
-        | "trace"
-        | "asset",
+      // Respect explicit CLI presence over config for include-assets
+      includeAssets: (Object.prototype.hasOwnProperty.call(
+        values,
+        "include-assets",
+      )
+        ? Boolean(values["include-assets"])
+        : (config.includeAssets ?? false)) as boolean,
+      // Prefer explicit CLI assets-field when provided
+      assetsField: (Object.prototype.hasOwnProperty.call(values, "assets-field")
+        ? (values["assets-field"] as string)
+        : (config.assetsField ?? "externalAssets")) as string,
+      // Engine will be validated immediately after options mapping
+      engine: (Object.prototype.hasOwnProperty.call(values, "engine")
+        ? (values.engine as string)
+        : (config.engine ?? "trace")) as unknown as "trace" | "asset",
       preserveFields: [
         ...((values["preserve-fields"] as string[]) || []),
         ...(config.preserveFields || []),
@@ -324,6 +331,20 @@ async function main(): Promise<void> {
         "node:*",
       ],
     };
+
+    // Validate engine option immediately after mapping
+    {
+      const rawEngine = Object.prototype.hasOwnProperty.call(values, "engine")
+        ? String(values.engine)
+        : String(config.engine ?? "trace");
+      const allowed = new Set(["trace", "asset"]);
+      if (!allowed.has(rawEngine)) {
+        throw new Error(
+          `Invalid value for --engine: "${rawEngine}". Allowed values: trace | asset`,
+        );
+      }
+      options.engine = rawEngine as "trace" | "asset";
+    }
 
     // Don't show verbose output in JSON mode
     if (!options.json) {

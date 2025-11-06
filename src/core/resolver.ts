@@ -213,11 +213,56 @@ async function resolvePackageExports(
           }
         }
       }
+
+      // If no exact match found, try wildcard pattern keys like "./*" or "./foo/*"
+      if (!target) {
+        const order = preferImport
+          ? ["import", "default", "require"]
+          : ["require", "default", "import"];
+
+        const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const tryWildcard = (patKey: string, val: unknown): string | null => {
+          // Only support single-asterisk patterns per key (Node allows this common case)
+          if (!patKey.includes("*")) return null;
+          const re = new RegExp(
+            "^" + esc(patKey).replace(/\\\*/g, "(.+)") + "$",
+          );
+          const m = re.exec(key);
+          if (!m || typeof m[1] !== "string") return null;
+          const star: string = m[1];
+          const replaceStar = (t: string) => t.replace(/\*/g, star);
+          if (typeof val === "string") return replaceStar(val);
+          if (val && typeof val === "object" && !Array.isArray(val)) {
+            const obj = val as Record<string, unknown>;
+            for (const cond of order) {
+              const v = obj[cond];
+              if (typeof v === "string") return replaceStar(v);
+            }
+            for (const k of Object.keys(obj)) {
+              const v = obj[k];
+              if (typeof v === "string") return replaceStar(v);
+            }
+          }
+          return null;
+        };
+
+        for (const [k, v] of Object.entries(exportsObj)) {
+          const mapped = tryWildcard(k, v);
+          if (mapped) {
+            target = mapped;
+            break;
+          }
+        }
+      }
     }
   }
 
-  if (!target && mainField) target = mainField;
-  if (!target) target = "index.js";
+  // Only fall back to main/index when resolving the package root (no subpath)
+  if (!target && subpath === "" && mainField) target = mainField;
+  if (!target && subpath === "") target = "index.js";
+
+  // If no mapping was found (e.g., unresolved subpath), stop here
+  if (!target) return null;
 
   // Join with pkg root
   if (target.startsWith("./")) target = target.slice(2);

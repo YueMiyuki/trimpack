@@ -36,11 +36,11 @@ export class AssetAnalyzer {
   // Asset patterns (files that might be loaded at runtime)
   private static readonly ASSET_PATTERNS = [
     // Template strings with file paths
-    /`[^`]*\$\{[^}]*\}[^`]*\.(json|txt|html|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|pdf)[^`]*`/g,
+    /`[^`]*\$\{[^}]*\}[^`]*?(?<asset>[^`]*\.(?:json|txt|html|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|pdf))[^`]*`/g,
     // String concatenation with file paths
-    /['"][^'"]*['"][^+]*\+[^+]*['"][^'"]*\.(json|txt|html|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|pdf)[^'"]*['"]/g,
+    /['"][^'"]*['"][^+]*\+[^+]*['"](?<asset>[^'"]*\.(?:json|txt|html|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|pdf))['"]/g,
     // Direct file references
-    /['"]([^'"]*\.(json|txt|html|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|pdf))['"]/g,
+    /['"](?<asset>[^'"]*\.(?:json|txt|html|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|pdf))['"]/g,
   ];
 
   constructor(options: AssetAnalyzeOptions = {}) {
@@ -145,7 +145,11 @@ export class AssetAnalyzer {
         pattern.lastIndex = 0;
         let match;
         while ((match = pattern.exec(code)) !== null) {
-          const assetPath = match[1] || match[0];
+          const candidate =
+            (match.groups?.asset as string | undefined) ??
+            (match[1]?.includes(".") ? match[1] : undefined) ??
+            match[0];
+          const assetPath = candidate?.trim();
           if (assetPath && this.looksLikeAssetPath(assetPath)) {
             // Resolve relative to current file
             const resolved = resolve(dirname(filePath), assetPath);
@@ -172,19 +176,26 @@ export class AssetAnalyzer {
     let match;
     while ((match = dirnamePattern.exec(code)) !== null) {
       const relativePath = match[1];
+      if (!relativePath) continue;
+      // Normalize the path: unify slashes, strip leading separators to keep it relative
+      let normalizedPath = relativePath.replace(/\\/g, "/");
+      if (normalizedPath.startsWith("/")) {
+        normalizedPath = normalizedPath.replace(/^\/+/, "");
+      }
       if (
-        relativePath &&
-        (relativePath.startsWith("./") || relativePath.startsWith("../"))
+        !normalizedPath.startsWith("./") &&
+        !normalizedPath.startsWith("../")
       ) {
-        const resolved = resolve(dirname(filePath), relativePath);
-        if (this.looksLikeModule(relativePath)) {
-          deps.add(relativePath);
-        } else if (
-          this.includeAssets &&
-          this.looksLikeAssetPath(relativePath)
-        ) {
-          assets.add(resolved);
-        }
+        normalizedPath = `./${normalizedPath}`;
+      }
+      const resolved = resolve(dirname(filePath), normalizedPath);
+      if (this.looksLikeModule(normalizedPath)) {
+        deps.add(normalizedPath);
+      } else if (
+        this.includeAssets &&
+        this.looksLikeAssetPath(normalizedPath)
+      ) {
+        assets.add(resolved);
       }
     }
 

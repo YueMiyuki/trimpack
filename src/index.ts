@@ -187,7 +187,7 @@ export class DependencyPacker {
       const { name, version } = packageInfo;
       if (processed.has(name)) continue;
       processed.add(name);
-      const resolvedVersion = this.resolveVersion(name, version);
+      const resolvedVersion = this.resolveVersion(name, version, options);
       if (resolvedVersion) {
         dependencies.set(name, resolvedVersion);
         this.log(`Found dependency: ${name}@${resolvedVersion}`, "debug");
@@ -219,7 +219,7 @@ export class DependencyPacker {
       const { name, version } = packageInfo;
       if (processed.has(name)) continue;
       processed.add(name);
-      const resolvedVersion = this.resolveVersion(name, version);
+      const resolvedVersion = this.resolveVersion(name, version, options);
       if (resolvedVersion) {
         dependencies.set(name, resolvedVersion);
         this.log(`Found dependency: ${name}@${resolvedVersion}`, "debug");
@@ -234,7 +234,7 @@ export class DependencyPacker {
       const { name, version } = packageInfo;
       if (processed.has(name)) continue;
       processed.add(name);
-      const resolvedVersion = this.resolveVersion(name, version);
+      const resolvedVersion = this.resolveVersion(name, version, options);
       if (resolvedVersion) {
         dependencies.set(name, resolvedVersion);
         this.log(
@@ -298,6 +298,7 @@ export class DependencyPacker {
   private resolveVersion(
     packageName: string,
     extractedVersion: string | null,
+    options: InternalOptions,
   ): string | null {
     // Priority: extracted version > root package.json > package's own package.json
 
@@ -309,9 +310,9 @@ export class DependencyPacker {
     if (this.rootPackageJson) {
       const version =
         this.rootPackageJson.dependencies?.[packageName] ||
-        (this.options.includeDevDependencies &&
+        (options.includeDevDependencies &&
           this.rootPackageJson.devDependencies?.[packageName]) ||
-        (this.options.includePeerDependencies &&
+        (options.includePeerDependencies &&
           this.rootPackageJson.peerDependencies?.[packageName]);
 
       if (version) return version;

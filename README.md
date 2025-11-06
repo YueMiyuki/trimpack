@@ -131,10 +131,15 @@ You can also configure trimpack in your `package.json`:
 | `--json`            | -     | Output JSON to stdout instead of file                     | `false`          |
 | `--verbose`         | -     | Enable verbose logging                                    | `false`          |
 | `--preserve-fields` | -     | Fields to preserve from original package.json             | `[]`             |
-| `--external`        | -     | External dependencies to exclude from analysis            | `["node:*"]`     |
+| `--external`        | -     | External dependencies to exclude from analysis            | `[]`             |
 | `--engine`          | -     | Analysis engine: `trace` or `asset`                       | `trace`          |
 | `--include-assets`  | -     | Include runtime asset references; writes `externalAssets` | `false`          |
 | `--assets-field`    | -     | Custom field name to write assets                         | `externalAssets` |
+
+Note on externals and built-ins:
+
+- Node.js built-in modules are always excluded automatically by the analyzer (both bare names like `fs` and `node:`-prefixed forms like `node:fs`).
+- The `--external` option uses exact string matching of specifiers (no globs). Patterns like `node:*` are not supported and are unnecessary for built-ins.
 
 ### Example Outputs
 

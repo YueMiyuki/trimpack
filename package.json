@@ -57,7 +57,7 @@
     "test:all": "pnpm run check-types && pnpm run test:cli && pnpm run test:api && pnpm run test:config",
     "test:example": "pnpm run build && node examples/basic.js src/index.ts packed.json",
     "check-types": "concurrently -n transpile,types -c cyan,magenta \"pnpm run check-types:transpile\" \"tsgo -p tsconfig.json\" && rm -rf .swc",
-    "check-types:transpile": "swc app components hooks lib --out-dir .swc --ignore '**/*.d.ts' --ignore 'node_modules' --ignore '.next'",
+    "check-types:transpile": "swc src --out-dir .swc --ignore '**/*.d.ts' --ignore 'node_modules'",
     "prepublishOnly": "pnpm run build && pnpm run test:all",
     "prepare": "node .husky/install.mjs",
     "lint": "eslint --fix .",

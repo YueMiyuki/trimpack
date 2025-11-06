@@ -2,12 +2,15 @@ import { dirname, resolve, sep, join, basename } from "node:path";
 import type { FsCache } from "./fs-cache.js";
 
 /**
- * Resolve a filesystem path by recursively following symlinks, constrained to a base directory.
+ * Resolve symlinks in a path, confined to a base directory.
  *
- * @param path - The path to resolve.
+ * - Only paths within `base` are resolved; paths outside `base` are returned unchanged.
+ * - This function is recursive and detects symlink cycles.
+ *
+ * @param path - Absolute path to resolve.
  * @param fs - Filesystem cache providing `readlink` used to detect symlinks.
- * @param base - Base directory used to determine whether a path should be resolved; paths outside `base` are returned unchanged.
- * @param seen - Internal set of already-visited paths to detect cycles (optional).
+ * @param base - Absolute base directory path; confines resolution to this subtree.
+ * @param seen - Set for cycle detection (internal; optional).
  * @returns The resolved real path when resolution occurs inside `base`, otherwise the original `path`.
  * @throws Error if a recursive symlink cycle is detected while resolving `path`.
  */
@@ -24,10 +27,6 @@ export async function realpath(
   if (symlink) {
     const parent = dirname(path);
     const resolved = resolve(parent, symlink);
-    const realParent = await realpath(parent, fs, base, seen);
-    if (inPath(path, realParent)) {
-      // noop – we only emit within base in the caller
-    }
     return realpath(resolved, fs, base, seen);
   }
   if (!inPath(path, base)) return path;

@@ -15,7 +15,11 @@ export class FsCache {
   private readonly readlinkCache = new Map<string, Promise<string | null>>();
 
   constructor(opts: FsCacheOptions = {}) {
-    this.sem = new Semaphore(Math.max(8, opts.concurrency ?? 256));
+    const concurrency =
+      opts.concurrency !== undefined && opts.concurrency !== null
+        ? Math.max(1, opts.concurrency)
+        : 256;
+    this.sem = new Semaphore(concurrency);
   }
 
   async readFile(path: string, encoding: BufferEncoding | null = "utf8") {
