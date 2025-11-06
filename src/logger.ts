@@ -4,9 +4,30 @@
  */
 
 import { appendFileSync } from "node:fs";
-import chalk from "chalk";
 
 export type LogType = "info" | "warn" | "error" | "debug" | "success";
+
+const ANSI = {
+  reset: "\x1b[0m",
+  blue: "\x1b[34m",
+  yellow: "\x1b[33m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+} as const;
+
+const useColor = !("NO_COLOR" in process.env);
+
+/**
+ * Wraps `text` with the ANSI escape codes for the given `color` when color output is enabled.
+ *
+ * @param text - The string to colorize
+ * @param color - The ANSI color key to apply (one of the keys in `ANSI`)
+ * @returns The input `text` wrapped with the ANSI codes for `color` when coloring is enabled, otherwise the original `text`
+ */
+function colorize(text: string, color: keyof typeof ANSI): string {
+  if (!useColor) return text;
+  return `${ANSI[color]}${text}${ANSI.reset}`;
+}
 
 interface LoggerOptions {
   silent?: boolean;
@@ -20,6 +41,16 @@ class Logger {
   constructor(options: LoggerOptions = {}) {
     this.silent = options.silent ?? false;
     this.logFile = options.logFile ?? null;
+
+    // If a log file is configured at construction time, ensure the file exists.
+    if (this.logFile) {
+      try {
+        // appendFileSync with an empty string will create the file if it doesn't exist
+        appendFileSync(this.logFile, "");
+      } catch {
+        // Swallow errors at construction to avoid throwing during logger creation
+      }
+    }
   }
 
   /**
@@ -42,7 +73,10 @@ class Logger {
       try {
         appendFileSync(this.logFile, fileMessage);
       } catch (err) {
-        console.error(chalk.red("Failed to write to log file:"), err);
+        // Use console.log so tests that capture console.log can assert gracefully
+        console.log(
+          `${colorize("Failed to write to log file:", "red")} ${String(err)}`,
+        );
       }
     }
   }
@@ -90,15 +124,15 @@ class Logger {
 
     switch (type) {
       case "info":
-        return chalk.blue(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "blue");
       case "warn":
-        return chalk.yellow(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "yellow");
       case "error":
-        return chalk.red(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "red");
       case "debug":
-        return chalk.green(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "green");
       case "success":
-        return chalk.green(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "green");
       default:
         return `${prefix} ${message}`;
     }
@@ -131,11 +165,15 @@ class Logger {
    */
   setLogFile(path: string | null): void {
     this.logFile = path;
+    if (this.logFile) {
+      try {
+        appendFileSync(this.logFile, "");
+      } catch {
+        // ignore errors when setting the log file path
+      }
+    }
   }
 }
-
-// Export a default logger instance
-export const logger = new Logger();
 
 // Export the Logger class for custom instances
 export { Logger };

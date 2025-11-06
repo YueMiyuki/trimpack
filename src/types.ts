@@ -1,5 +1,3 @@
-import type { Metafile } from "esbuild";
-
 export interface PackerOptions {
   output?: string; // Output file path for package.json
   external?: string[]; // Dependencies to exclude from analysis
@@ -9,7 +7,11 @@ export interface PackerOptions {
   merge?: boolean; // Merge with existing package.json at output path
   preserveFields?: string[]; // Fields to preserve from original package.json
   minimalOutput?: boolean; // Only output dependencies, nothing else
-  json?: boolean; // Output raw JSON to stdout instead of file
+  json?: boolean; // Output raw JSON to stdout instead of file (CLI-oriented)
+  noWrite?: boolean; // Programmatic: do not write file or print; return JSON in result only
+  includeAssets?: boolean; // Include runtime assets
+  assetsField?: string; // Field name to write assets into (default: "externalAssets")
+  engine?: "trace" | "asset"; // Internal analysis engine
 }
 
 export interface PackageJson {
@@ -36,10 +38,7 @@ export interface PackageJson {
   packer?: PackerOptions;
 }
 
-export interface PackageInfo {
-  name: string;
-  version: string | null;
-}
+// Removed unused PackageInfo type
 
 export type DependencyMap = Map<string, string>;
 
@@ -63,16 +62,11 @@ export interface PackResult {
 
 export type LogLevel = "info" | "success" | "warning" | "error" | "debug";
 
-export interface Logger {
-  log(message: string, level?: LogLevel): void;
-}
+// Logger interface removed; use Logger class from src/logger.ts when needed
 
 export interface ExtractedPackageInfo {
   name: string;
   version: string | null;
 }
 
-export interface AnalysisResult {
-  metafile: Metafile;
-  dependencies: DependencyMap;
-}
+// AnalysisResult removed; current engines do not expose metafiles

@@ -5,7 +5,7 @@
 ## Features
 
 - 🎯 **Smart Dependency Detection** - Automatically analyzes your code to find only the dependencies you actually use
-- ⚡ **Fast & Efficient** - Built on esbuild for lightning-fast analysis
+- ⚡ **Engines** - `trace` (default) for code-only analysis; optional `asset`-style detection can be enabled via a flag to record runtime assets
 - 🔧 **Flexible Configuration** - Use via CLI, programmatic API, or configuration files
 - 📊 **Detailed Reports** - Get insights into what dependencies are being packed and why
 
@@ -30,7 +30,7 @@ pnpm dlx trimpack src/index.js
 ### CLI Usage
 
 ```bash
-# Basic usage - analyze and generate package.json
+# Basic usage - analyze and generate deps.json
 trimpack src/index.js
 
 # Output to specific file
@@ -59,13 +59,31 @@ const packer = new DependencyPacker({
   output: "packed.json",
   includeDevDependencies: false,
   minimalOutput: false,
+  // Programmatic-only: do not write a file, just return the JSON
+  noWrite: true,
+  // Opt-in asset recording
+  includeAssets: true,
+  // Optional: customize the field name for asset list
+  assetsField: "externalAssets",
 });
 
 // Analyze dependencies
 const result = await packer.pack("src/index.js");
 
 console.log(`Found ${result.dependencies.length} dependencies`);
-console.log(`Output written to: ${result.outputFile}`);
+// Access the generated package.json directly from the result
+console.log(result.packageJson);
+```
+
+Example programmatic result (truncated):
+
+```json
+{
+  "name": "trimpack",
+  "version": "1.0.0",
+  "dependencies": {},
+  "externalAssets": []
+}
 ```
 
 ## Configuration
@@ -79,7 +97,7 @@ Create a `.deppackrc.json` or `deppack.config.json` file in your project root:
   "output": "packed.json",
   "includeDevDependencies": true,
   "includePeerDependencies": false,
-  "minimal": false,
+  "minimalOutput": false,
   "preserveFields": ["scripts", "author", "license"]
 }
 ```
@@ -92,7 +110,7 @@ You can also configure trimpack in your `package.json`:
 {
   "deppack": {
     "output": "packed.json",
-    "minimal": false,
+    "minimalOutput": false,
     "preserveFields": ["scripts"]
   }
 }
@@ -100,20 +118,62 @@ You can also configure trimpack in your `package.json`:
 
 ### CLI Options
 
-| Option              | Short | Description                                     | Default        |
-| ------------------- | ----- | ----------------------------------------------- | -------------- |
-| `--help`            | `-h`  | Show help information                           | -              |
-| `--version`         | `-v`  | Show version information                        | -              |
-| `--output`          | `-o`  | Output file path for generated package.json     | `package.json` |
-| `--config`          | `-c`  | Path to configuration file                      | -              |
-| `--include-dev`     | -     | Include dev dependencies in analysis            | `false`        |
-| `--include-peer`    | -     | Include peer dependencies in analysis           | `false`        |
-| `--merge`           | -     | Merge with existing package.json at output path | `false`        |
-| `--minimal`         | -     | Output only dependencies (minimal package.json) | `false`        |
-| `--json`            | -     | Output JSON to stdout instead of file           | `false`        |
-| `--verbose`         | -     | Enable verbose logging                          | `false`        |
-| `--preserve-fields` | -     | Fields to preserve from original package.json   | `[]`           |
-| `--external`        | -     | External dependencies to exclude from analysis  | `[]`           |
+| Option              | Short | Description                                               | Default          |
+| ------------------- | ----- | --------------------------------------------------------- | ---------------- |
+| `--help`            | `-h`  | Show help information                                     | -                |
+| `--version`         | `-v`  | Show version information                                  | -                |
+| `--output`          | `-o`  | Output file path for generated package.json               | `deps.json`      |
+| `--config`          | `-c`  | Path to configuration file                                | -                |
+| `--include-dev`     | -     | Include dev dependencies in analysis                      | `false`          |
+| `--include-peer`    | -     | Include peer dependencies in analysis                     | `false`          |
+| `--merge`           | -     | Merge with existing package.json at output path           | `false`          |
+| `--minimal`         | -     | Output only dependencies (minimal package.json)           | `false`          |
+| `--json`            | -     | Output JSON to stdout instead of file                     | `false`          |
+| `--verbose`         | -     | Enable verbose logging                                    | `false`          |
+| `--preserve-fields` | -     | Fields to preserve from original package.json             | `[]`             |
+| `--external`        | -     | External dependencies to exclude from analysis            | `[]`             |
+| `--engine`          | -     | Analysis engine: `trace` or `asset`                       | `trace`          |
+| `--include-assets`  | -     | Include runtime asset references; writes `externalAssets` | `false`          |
+| `--assets-field`    | -     | Custom field name to write assets                         | `externalAssets` |
+
+Note on externals and built-ins:
+
+- Node.js built-in modules are always excluded automatically by the analyzer (both bare names like `fs` and `node:`-prefixed forms like `node:fs`).
+- The `--external` option uses exact string matching of specifiers (no globs). Patterns like `node:*` are not supported and are unnecessary for built-ins.
+
+### Example Outputs
+
+Basic JSON output:
+
+```bash
+trimpack src/index.js --json
+```
+
+Output (truncated):
+
+```json
+{
+  "name": "trimpack",
+  "version": "1.0.1",
+  "dependencies": {},
+  "externalAssets": []
+}
+```
+
+Minimal dependencies only:
+
+```bash
+trimpack src/index.js --minimal --json
+```
+
+Output:
+
+```json
+{
+  "dependencies": {},
+  "externalAssets": []
+}
+```
 
 ## API Reference
 
