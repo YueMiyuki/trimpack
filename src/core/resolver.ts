@@ -9,6 +9,12 @@ const builtinSet = new Set<string>([
   ...builtinModules.map((m) => `node:${m}`),
 ]);
 
+/**
+ * Check whether a module identifier refers to a Node.js built-in module.
+ *
+ * @param id - Module identifier (may be a core name like `fs` or a `node:`-prefixed name)
+ * @returns `true` if `id` is a Node built-in (including `node:`-prefixed names), `false` otherwise.
+ */
 export function isBuiltin(id: string): boolean {
   return builtinSet.has(id) || id.startsWith("node:");
 }
@@ -22,6 +28,14 @@ type PackageJson = {
 };
 const pjsonCache = new Map<string, PackageJson>();
 
+/**
+ * Resolve a module specifier to an absolute filesystem path from the context of a source file.
+ *
+ * @param fromFile - Absolute path of the file doing the import or require; used as resolution context
+ * @param spec - Module specifier (package name, scoped or subpath, relative path, or builtin id)
+ * @param fs - Filesystem cache interface used for on-disk checks and package.json reads
+ * @returns The resolved absolute filesystem path for `spec`, or `null` if resolution failed or `spec` is a Node builtin
+ */
 export async function resolveId(
   fromFile: string,
   spec: string,
@@ -65,6 +79,13 @@ export async function resolveId(
   return null;
 }
 
+/**
+ * Resolve a relative or absolute module spec to an existing filesystem path using JS/TS extensions and index fallbacks.
+ *
+ * @param fromFile - The importer file path used as the base directory for resolving `spec`.
+ * @param spec - A relative (./ or ../) or absolute (/) module spec to resolve.
+ * @returns The filesystem path of the first candidate file that exists, or `null` if no match is found.
+ */
 async function resolveRelativeTs(
   fromFile: string,
   spec: string,
@@ -88,12 +109,26 @@ async function resolveRelativeTs(
   return null;
 }
 
+/**
+ * Determines whether a module specifier is a relative or absolute path.
+ *
+ * @param spec - The module specifier to check (e.g., "./foo", "../bar", "/baz", "pkg/name")
+ * @returns `true` if `spec` starts with "./", "../", or "/", `false` otherwise.
+ */
 function isRelative(spec: string) {
   return (
     spec.startsWith("./") || spec.startsWith("../") || spec.startsWith("/")
   );
 }
 
+/**
+ * Locate, read, and parse the package.json for the given package spec, returning its package root and parsed manifest or `null` if unavailable or invalid.
+ *
+ * @param req - The Node `require` used to resolve the package.json path for `spec`
+ * @param spec - The package specifier (package name or path) to resolve
+ * @param fs - Filesystem cache providing `readFile` used to read the resolved package.json
+ * @returns An object with `root` (the package directory) and `pjson` (the parsed package.json) if successful, `null` otherwise
+ */
 async function readPackageSpec(
   req: NodeJS.Require,
   spec: string,
@@ -113,6 +148,15 @@ async function readPackageSpec(
   }
 }
 
+/**
+ * Resolve a package export target for a given spec using package.json `exports`/`module`/`main` fields and filesystem fallbacks.
+ *
+ * @param pkgRoot - Absolute path to the package root directory containing the package.json
+ * @param pjson - Parsed package.json object for the package at pkgRoot
+ * @param spec - The original import/require specifier (used to derive subpath keys for `exports`)
+ * @param preferImport - When `true`, prefer `import` then `default` then `require` entries from an `exports` object; when `false`, prefer `require` then `default` then `import`
+ * @returns The resolved file path inside the package that exists on disk, or `null` if no candidate file was found
+ */
 async function resolvePackageExports(
   pkgRoot: string,
   pjson: PackageJson,
@@ -199,6 +243,12 @@ async function resolvePackageExports(
   return null;
 }
 
+/**
+ * Extracts the package subpath portion from a module specifier.
+ *
+ * @param spec - The module specifier (e.g., package name, scoped package, relative path, or `node:`-prefixed id)
+ * @returns The subpath including a leading `/` (for example, `/sub/path` or `/x`), or an empty string if the spec has no package subpath or is relative/`node:`-prefixed
+ */
 function getSubpathFromSpec(spec: string): string {
   // from 'pkg/sub/path' -> '/sub/path'; from '@scope/pkg/x' -> '/x'
   if (isRelative(spec) || spec.startsWith("node:")) return "";

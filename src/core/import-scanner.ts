@@ -4,6 +4,13 @@ const importExprRe = /\bimport\(\s*['"]([^'"\n]+)['"]\s*\)/g;
 const exportFromRe = /\bexport\s+[^;\n]*?from\s*['"]([^'"\n]+)['"]/g;
 const requireRe = /\brequire\(\s*(['"])\s*([^'"\n)]+)\s*\1\s*\)/g;
 
+/**
+ * Extracts unique module specifier strings from the given source code.
+ *
+ * Scans for specifiers in ES module `import` (including bare imports), `export ... from`, dynamic `import()` with string literals, and CommonJS `require()` calls. Returns an empty array immediately if `code` is longer than 2,000,000 characters.
+ *
+ * @returns An array of unique module specifier strings found in `code`, or an empty array if none are found or the input exceeds the length limit.
+ */
 export function scanSpecifiers(code: string): string[] {
   const specs = new Set<string>();
 
