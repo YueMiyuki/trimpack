@@ -159,7 +159,7 @@ node --experimental-test-coverage --import tsx --test test/unit/*.test.ts
 
 ## Troubleshooting
 
-### Tests timeout
+### Tests time out
 
 - Increase timeout with `--test-timeout=30000` (30 seconds)
 - Check for hanging promises or unclosed resources

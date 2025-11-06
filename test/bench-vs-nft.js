@@ -6,11 +6,12 @@
  */
 
 import { writeFileSync, unlinkSync } from "node:fs";
-import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 import { traceDependencies } from "../dist/core/dependency-tracer.js";
 import { AssetAnalyzer } from "../dist/core/asset-analyzer.js";
 import { nodeFileTrace } from "@vercel/nft";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const colors = {
   reset: "\x1b[0m",
@@ -30,7 +31,7 @@ function success(msg) {
 
 async function main() {
   const rounds = Number(process.env.ROUNDS || 50000);
-  const entry = resolve(".bench-entry.js");
+  const entry = join(tmpdir(), `.bench-entry-${process.pid}.js`);
 
   // Prepare a tiny entry file with builtins to keep runtime stable
   // Builtins are marked external in trimpack to match nft behavior
