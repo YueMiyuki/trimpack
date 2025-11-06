@@ -180,19 +180,7 @@ export class DependencyPacker {
     const dependencies: DependencyMap = new Map();
     const processed = new Set<string>();
 
-    for (const path of files) {
-      if (!path.includes("node_modules")) continue;
-      const packageInfo = this.extractPackageInfo(path);
-      if (!packageInfo) continue;
-      const { name, version } = packageInfo;
-      if (processed.has(name)) continue;
-      processed.add(name);
-      const resolvedVersion = this.resolveVersion(name, version, options);
-      if (resolvedVersion) {
-        dependencies.set(name, resolvedVersion);
-        this.log(`Found dependency: ${name}@${resolvedVersion}`, "debug");
-      }
-    }
+    this.processPaths(files, dependencies, processed, options);
     return dependencies;
   }
 
@@ -212,24 +200,24 @@ export class DependencyPacker {
     const processed = new Set<string>();
 
     // Process discovered dependencies
-    for (const depPath of result.dependencies) {
-      if (!depPath.includes("node_modules")) continue;
-      const packageInfo = this.extractPackageInfo(depPath);
-      if (!packageInfo) continue;
-      const { name, version } = packageInfo;
-      if (processed.has(name)) continue;
-      processed.add(name);
-      const resolvedVersion = this.resolveVersion(name, version, options);
-      if (resolvedVersion) {
-        dependencies.set(name, resolvedVersion);
-        this.log(`Found dependency: ${name}@${resolvedVersion}`, "debug");
-      }
-    }
+    this.processPaths(result.dependencies, dependencies, processed, options);
 
     // Process assets if they contain package references
-    for (const assetPath of result.assets) {
-      if (!assetPath.includes("node_modules")) continue;
-      const packageInfo = this.extractPackageInfo(assetPath);
+    this.processPaths(result.assets, dependencies, processed, options, "asset");
+
+    return dependencies;
+  }
+
+  private processPaths(
+    paths: Iterable<string>,
+    dependencies: DependencyMap,
+    processed: Set<string>,
+    options: InternalOptions,
+    label?: string,
+  ): void {
+    for (const path of paths) {
+      if (!path.includes("node_modules")) continue;
+      const packageInfo = this.extractPackageInfo(path);
       if (!packageInfo) continue;
       const { name, version } = packageInfo;
       if (processed.has(name)) continue;
@@ -237,14 +225,12 @@ export class DependencyPacker {
       const resolvedVersion = this.resolveVersion(name, version, options);
       if (resolvedVersion) {
         dependencies.set(name, resolvedVersion);
-        this.log(
-          `Found dependency (asset): ${name}@${resolvedVersion}`,
-          "debug",
-        );
+        const msg = label
+          ? `Found dependency (${label}): ${name}@${resolvedVersion}`
+          : `Found dependency: ${name}@${resolvedVersion}`;
+        this.log(msg, "debug");
       }
     }
-
-    return dependencies;
   }
 
   private async collectAssets(

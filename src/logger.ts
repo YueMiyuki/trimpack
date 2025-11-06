@@ -15,7 +15,7 @@ const ANSI = {
   green: "\x1b[32m",
 } as const;
 
-const useColor = !process.env.NO_COLOR;
+const useColor = !("NO_COLOR" in process.env);
 
 /**
  * Wraps `text` with the ANSI escape codes for the given `color` when color output is enabled.

@@ -2,7 +2,11 @@ export class Semaphore {
   private queue: Array<() => void> = [];
   private active = 0;
 
-  constructor(private readonly limit: number) {}
+  constructor(private readonly limit: number) {
+    if (limit < 1) {
+      throw new Error("Semaphore limit must be at least 1");
+    }
+  }
 
   async acquire(): Promise<() => void> {
     if (this.active < this.limit) {

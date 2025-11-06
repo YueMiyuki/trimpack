@@ -134,18 +134,106 @@ async function readPackageSpec(
   spec: string,
   fs: FsCache,
 ): Promise<{ root: string; pjson: PackageJson } | null> {
+  // Extract the package root from a subpath spec (e.g., "pkg/foo" -> "pkg", "@scope/pkg/x" -> "@scope/pkg").
+  // This ensures we resolve "<package>/package.json" rather than "<package>/<subpath>/package.json".
+  const subpath = getSubpathFromSpec(spec);
+  const packageName =
+    !isRelative(spec) && !spec.startsWith("node:")
+      ? subpath && subpath.length
+        ? spec.slice(0, spec.length - subpath.length)
+        : spec
+      : null;
+
+  // Try to resolve the spec to a concrete file first; from there walk up to the nearest package.json
+  let resolved: string | null = null;
   try {
-    const pkgJsonPath = req.resolve(spec + "/package.json");
-    const root = dirname(pkgJsonPath);
-    const json = await fs.readFile(pkgJsonPath, "utf8");
-    const parsed: unknown = JSON.parse(String(json));
-    if (!parsed || typeof parsed !== "object") return null;
-    const pjson = parsed as PackageJson;
-    pjsonCache.set(pkgJsonPath, pjson);
-    return { root, pjson };
+    resolved = req.resolve(spec);
   } catch {
-    return null;
+    resolved = null;
   }
+
+  const findNearestPkgJson = async (
+    startDir: string,
+  ): Promise<string | null> => {
+    let dir = startDir;
+    const seen = new Set<string>();
+    while (!seen.has(dir)) {
+      seen.add(dir);
+      const candidate = joinPath(dir, "package.json");
+      try {
+        const st = await fs.stat(candidate);
+        if (st.isFile()) {
+          // If we know the package name, prefer a matching package.json
+          if (packageName) {
+            let cached = pjsonCache.get(candidate);
+            if (!cached) {
+              try {
+                const content = await fs.readFile(candidate, "utf8");
+                const parsed = JSON.parse(String(content)) as PackageJson & {
+                  name?: unknown;
+                };
+                cached = parsed;
+                pjsonCache.set(candidate, parsed);
+              } catch {
+                // ignore parse errors, continue upward
+              }
+            }
+            const name = (cached?.name as string | undefined) ?? undefined;
+            if (
+              !packageName ||
+              (typeof name === "string" && name === packageName)
+            ) {
+              return candidate;
+            }
+            // If name doesn't match, continue walking up in case of nested packages
+          } else {
+            // No base available; use the first package.json encountered
+            return candidate;
+          }
+        }
+      } catch {
+        // ignore missing file, continue upward
+      }
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return null;
+  };
+
+  // If we resolved to a file, prefer the nearest package.json from that location
+  let pkgJsonPath: string | null = null;
+  if (resolved) {
+    pkgJsonPath = await findNearestPkgJson(dirname(resolved));
+  }
+
+  // Fallback: try resolving the package's package.json directly (may fail if exports hides it)
+  if (!pkgJsonPath && packageName) {
+    try {
+      const p = req.resolve(`${packageName}/package.json`);
+      pkgJsonPath = p;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!pkgJsonPath) return null;
+
+  const root = dirname(pkgJsonPath);
+  let pjson = pjsonCache.get(pkgJsonPath);
+  if (!pjson) {
+    try {
+      const json = await fs.readFile(pkgJsonPath, "utf8");
+      const parsed: unknown = JSON.parse(String(json));
+      if (!parsed || typeof parsed !== "object") return null;
+      pjson = parsed as PackageJson;
+      pjsonCache.set(pkgJsonPath, pjson);
+    } catch {
+      return null;
+    }
+  }
+
+  return { root, pjson };
 }
 
 /**

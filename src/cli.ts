@@ -290,6 +290,9 @@ async function main(): Promise<void> {
     }
 
     // Map CLI arguments to options
+    // Parse argv for flags whose presence matters (e.g., include-assets)
+    const argvFlags = process.argv.slice(2);
+
     const options: PackerOptions = {
       ...config,
       output: (values.output as string) || config.output || "deps.json",
@@ -307,16 +310,27 @@ async function main(): Promise<void> {
       json: (values.json as boolean) || config.json || false,
       verbose: (values.verbose as boolean) || config.verbose || false,
       // Respect explicit CLI presence over config for include-assets
-      includeAssets: (Object.prototype.hasOwnProperty.call(
-        values,
-        "include-assets",
-      )
-        ? Boolean(values["include-assets"])
-        : (config.includeAssets ?? false)) as boolean,
-      // Prefer explicit CLI assets-field when provided
-      assetsField: (Object.prototype.hasOwnProperty.call(values, "assets-field")
-        ? (values["assets-field"] as string)
-        : (config.assetsField ?? "externalAssets")) as string,
+      includeAssets: (() => {
+        const hasCliFlag = process.argv
+          .slice(2)
+          .some(
+            (arg) =>
+              arg === "--include-assets" ||
+              arg === "--no-include-assets" ||
+              arg.startsWith("--include-assets="),
+          );
+        if (hasCliFlag) return Boolean(values["include-assets"]);
+        return config.includeAssets ?? false;
+      })(),
+      // Prefer explicit CLI assets-field when provided; detect flag presence explicitly
+      assetsField: (() => {
+        const hasCliFlag = argvFlags.some(
+          (arg) =>
+            arg === "--assets-field" || arg.startsWith("--assets-field="),
+        );
+        if (hasCliFlag) return values["assets-field"] as string;
+        return (config.assetsField ?? "externalAssets") as string;
+      })(),
       // Engine will be validated immediately after options mapping
       engine: (Object.prototype.hasOwnProperty.call(values, "engine")
         ? (values.engine as string)
