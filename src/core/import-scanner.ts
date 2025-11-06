@@ -26,25 +26,30 @@ export function scanSpecifiers(code: string): string[] {
     return [];
   }
 
+  // Best-effort strip of comments to avoid matching commented-out imports.
+  // This intentionally does not attempt full JS parsing; it covers the simple
+  // cases exercised in our tests (// line comments and /* block comments */).
+  const withoutComments = code.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "");
+
   let m: RegExpExecArray | null;
 
   // ESM import ... from 'x' and bare import 'x'
-  while ((m = importRe.exec(code))) {
+  while ((m = importRe.exec(withoutComments))) {
     if (m[1]) specs.add(m[1]);
   }
 
   // export ... from 'x'
-  while ((m = exportFromRe.exec(code))) {
+  while ((m = exportFromRe.exec(withoutComments))) {
     if (m[1]) specs.add(m[1]);
   }
 
   // dynamic import('x') with literal
-  while ((m = importExprRe.exec(code))) {
+  while ((m = importExprRe.exec(withoutComments))) {
     if (m[1]) specs.add(m[1]);
   }
 
   // CJS require('x')
-  while ((m = requireRe.exec(code))) {
+  while ((m = requireRe.exec(withoutComments))) {
     if (m[2]) specs.add(m[2]);
   }
 

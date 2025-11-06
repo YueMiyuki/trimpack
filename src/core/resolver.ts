@@ -16,7 +16,9 @@ const builtinSet = new Set<string>([
  * @returns `true` if `id` is a Node built-in (including `node:`-prefixed names), `false` otherwise.
  */
 export function isBuiltin(id: string): boolean {
-  return builtinSet.has(id) || id.startsWith("node:");
+  // Only treat as builtin if it exactly matches a known core module
+  // or a known "node:"-prefixed core module. Do not consider bare "node:" as builtin.
+  return builtinSet.has(id);
 }
 
 const resolveCache = new Map<string, string | null>();

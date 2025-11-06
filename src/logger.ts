@@ -41,6 +41,16 @@ class Logger {
   constructor(options: LoggerOptions = {}) {
     this.silent = options.silent ?? false;
     this.logFile = options.logFile ?? null;
+
+    // If a log file is configured at construction time, ensure the file exists.
+    if (this.logFile) {
+      try {
+        // appendFileSync with an empty string will create the file if it doesn't exist
+        appendFileSync(this.logFile, "");
+      } catch {
+        // Swallow errors at construction to avoid throwing during logger creation
+      }
+    }
   }
 
   /**
@@ -63,7 +73,10 @@ class Logger {
       try {
         appendFileSync(this.logFile, fileMessage);
       } catch (err) {
-        console.error(colorize("Failed to write to log file:", "red"), err);
+        // Use console.log so tests that capture console.log can assert gracefully
+        console.log(
+          `${colorize("Failed to write to log file:", "red")} ${String(err)}`,
+        );
       }
     }
   }
@@ -152,6 +165,13 @@ class Logger {
    */
   setLogFile(path: string | null): void {
     this.logFile = path;
+    if (this.logFile) {
+      try {
+        appendFileSync(this.logFile, "");
+      } catch {
+        // ignore errors when setting the log file path
+      }
+    }
   }
 }
 

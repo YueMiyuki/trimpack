@@ -136,20 +136,8 @@ describe("Semaphore", () => {
   });
 
   describe("edge cases", () => {
-    it("should handle zero limit gracefully", async () => {
-      const sem = new Semaphore(0);
-      let acquired = false;
-
-      // This should hang indefinitely, so we timeout
-      const promise = Promise.race([
-        sem.acquire().then(() => {
-          acquired = true;
-        }),
-        new Promise((resolve) => setTimeout(resolve, 50)),
-      ]);
-
-      await promise;
-      assert.strictEqual(acquired, false);
+    it("should throw when limit < 1", () => {
+      assert.throws(() => new Semaphore(0));
     });
 
     it("should handle concurrent releases", async () => {

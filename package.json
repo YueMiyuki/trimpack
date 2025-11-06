@@ -54,7 +54,7 @@
     "test:cli": "pnpm run build && node test/test-all-options.js",
     "test:api": "pnpm run build && node test/test-programmatic-api.js",
     "test:config": "pnpm run build && node test/test-config-files.js",
-    "test:all": "pnpm run check-types && pnpm run test:cli && pnpm run test:api && pnpm run test:config",
+    "test:all": "pnpm run check-types && pnpm run test:cli && pnpm run test:api && pnpm run test:config && node test/run-unit-tests.js",
     "test:example": "pnpm run build && node examples/basic.js src/index.ts packed.json",
     "check-types": "concurrently -n transpile,types -c cyan,magenta \"pnpm run check-types:transpile\" \"tsgo -p tsconfig.json\" && rm -rf .swc",
     "check-types:transpile": "swc src --out-dir .swc --ignore '**/*.d.ts' --ignore 'node_modules'",

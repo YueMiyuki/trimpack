@@ -3,6 +3,7 @@ export class Semaphore {
   private active = 0;
 
   constructor(private readonly limit: number) {
+    // Enforce a minimum limit of 1
     if (limit < 1) {
       throw new Error("Semaphore limit must be at least 1");
     }
@@ -22,7 +23,7 @@ export class Semaphore {
   }
 
   private release(): void {
-    this.active--;
+    if (this.active > 0) this.active--;
     const next = this.queue.shift();
     if (next) next();
   }

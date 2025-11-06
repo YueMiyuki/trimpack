@@ -63,8 +63,8 @@ async function main() {
     printInfo(`Running: ${testName}`);
 
     try {
-      // Run the test file using Node.js with tsx loader
-      execSync(`node --import tsx --test ${testFile}`, {
+      // Run the test file using Node.js with jiti (current TS runtime)
+      execSync(`node --import jiti/register --test ${testFile}`, {
         stdio: "inherit",
         env: { ...process.env, NODE_OPTIONS: "--no-warnings" },
       });

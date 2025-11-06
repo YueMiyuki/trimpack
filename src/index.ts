@@ -248,11 +248,13 @@ export class DependencyPacker {
   }
 
   private emitOutput(packageJson: PackageJson, options: InternalOptions): void {
-    if (options.noWrite) return;
+    // First, honor JSON output regardless of noWrite
     if (options.json) {
       console.log(JSON.stringify(packageJson, null, 2));
       return;
     }
+    // Then, if noWrite is set, skip writing to disk and logging
+    if (options.noWrite) return;
     writeFileSync(options.output, JSON.stringify(packageJson, null, 2));
     this.log(`Package.json written to: ${options.output}`, "success");
   }

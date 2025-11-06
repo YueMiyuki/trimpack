@@ -355,18 +355,30 @@ function buildOptionsFromArgs(
   return {
     ...config,
     output: (values.output as string) || config.output || "deps.json",
-    includeDevDependencies:
-      (values["include-dev"] as boolean) ||
-      config.includeDevDependencies ||
-      false,
-    includePeerDependencies:
-      (values["include-peer"] as boolean) ||
-      config.includePeerDependencies ||
-      false,
-    merge: (values.merge as boolean) || config.merge || false,
-    minimalOutput: (values.minimal as boolean) || config.minimalOutput || false,
-    json: (values.json as boolean) || config.json || false,
-    verbose: (values.verbose as boolean) || config.verbose || false,
+    includeDevDependencies: Object.prototype.hasOwnProperty.call(
+      values,
+      "include-dev",
+    )
+      ? Boolean(values["include-dev"])
+      : (config.includeDevDependencies ?? false),
+    includePeerDependencies: Object.prototype.hasOwnProperty.call(
+      values,
+      "include-peer",
+    )
+      ? Boolean(values["include-peer"])
+      : (config.includePeerDependencies ?? false),
+    merge: Object.prototype.hasOwnProperty.call(values, "merge")
+      ? Boolean(values.merge)
+      : (config.merge ?? false),
+    minimalOutput: Object.prototype.hasOwnProperty.call(values, "minimal")
+      ? Boolean(values.minimal)
+      : (config.minimalOutput ?? false),
+    json: Object.prototype.hasOwnProperty.call(values, "json")
+      ? Boolean(values.json)
+      : (config.json ?? false),
+    verbose: Object.prototype.hasOwnProperty.call(values, "verbose")
+      ? Boolean(values.verbose)
+      : (config.verbose ?? false),
     includeAssets: (() => {
       const hasCliFlag = process.argv
         .slice(2)

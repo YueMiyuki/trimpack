@@ -45,8 +45,9 @@ describe("FsCache", () => {
       assert.ok(cache instanceof FsCache);
     });
 
-    it("should enforce minimum concurrency of 8", () => {
-      const cache = new FsCache({ concurrency: 5 });
+    it("should enforce minimum concurrency of 1", () => {
+      // Request too-small concurrency; FsCache clamps to at least 1
+      const cache = new FsCache({ concurrency: 0 });
       assert.ok(cache instanceof FsCache);
     });
   });
