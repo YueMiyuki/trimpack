@@ -106,6 +106,18 @@ const cliOptions: Record<string, CLIOption> = {
     multiple: true,
     description: "External dependencies to exclude",
   },
+  "include-assets": {
+    type: "boolean",
+    description: "Include runtime asset references",
+  },
+  "assets-field": {
+    type: "string",
+    description: "Custom field name for assets (default: externalAssets)",
+  },
+  engine: {
+    type: "string",
+    description: "Analysis engine: trace | asset",
+  },
 };
 
 function showHelp(): void {
@@ -280,6 +292,14 @@ async function main(): Promise<void> {
         (values.minimal as boolean) || config.minimalOutput || false,
       json: (values.json as boolean) || config.json || false,
       verbose: (values.verbose as boolean) || config.verbose || false,
+      includeAssets:
+        (values["include-assets"] as boolean) || config.includeAssets || false,
+      assetsField: ((values["assets-field"] as string) ||
+        config.assetsField ||
+        "externalAssets") as string,
+      engine: ((values.engine as string) || config.engine || "trace") as
+        | "trace"
+        | "asset",
       preserveFields: [
         ...((values["preserve-fields"] as string[]) || []),
         ...(config.preserveFields || []),
@@ -320,12 +340,33 @@ async function main(): Promise<void> {
       console.error(`  Dependencies found: ${result.dependencies.length}`);
       console.error(`  Output written to: ${result.outputFile}`);
 
+      if (options.includeAssets) {
+        const field = options.assetsField || "externalAssets";
+        const assets = (result.packageJson as Record<string, unknown>)[
+          field
+        ] as string[] | undefined;
+        const count = Array.isArray(assets) ? assets.length : 0;
+        console.error(`  Assets found: ${count}`);
+      }
+
       if (options.verbose) {
         console.error();
         console.error(color("📦 Dependencies:", "dim"));
         result.dependencies.forEach(([name, version]) => {
           console.error(`  - ${name}@${version}`);
         });
+
+        if (options.includeAssets) {
+          const field = options.assetsField || "externalAssets";
+          const assets = (result.packageJson as Record<string, unknown>)[
+            field
+          ] as string[] | undefined;
+          if (assets && assets.length) {
+            console.error();
+            console.error(color("🗂 Assets:", "dim"));
+            assets.forEach((a) => console.error(`  - ${a}`));
+          }
+        }
       }
 
       console.error();

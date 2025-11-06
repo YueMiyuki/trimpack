@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, relative, basename } from "node:path";
-import { build, type BuildOptions } from "esbuild";
+import { traceDependencies } from "./core/dependency-tracer.js";
+import { AssetAnalyzer } from "./core/asset-analyzer.js";
 import { createRequire } from "node:module";
 import { Logger, type LogType } from "./logger.js";
 import type {
@@ -15,7 +16,7 @@ import type {
 
 const require = createRequire(import.meta.url);
 
-// Internal options that include esbuild-specific settings
+// Internal options for analysis and output metadata
 interface InternalOptions extends Required<PackerOptions> {
   platform: "node" | "neutral" | "browser";
   target: string;
@@ -41,7 +42,11 @@ export class DependencyPacker {
       preserveFields: options.preserveFields ?? [],
       minimalOutput: options.minimalOutput ?? false,
       json: options.json ?? false,
-      // Internal options for esbuild (not exposed to users)
+      noWrite: options.noWrite ?? false,
+      includeAssets: options.includeAssets ?? false,
+      assetsField: options.assetsField ?? "externalAssets",
+      engine: options.engine ?? "trace",
+      // Internal options (also used for output metadata)
       platform: "node" as const,
       target: "node18",
       format: "esm" as const,
@@ -75,6 +80,10 @@ export class DependencyPacker {
 
       // Analyze dependencies
       const dependencies = await this.analyzeDependencies(entry, options);
+      // Optionally collect asset references
+      const assets = options.includeAssets
+        ? await this.collectAssets(entry, options)
+        : [];
 
       // Generate or merge package.json
       let packageJson: PackageJson;
@@ -95,14 +104,25 @@ export class DependencyPacker {
         packageJson = this.generatePackageJson(dependencies, options);
       }
 
+      // If including assets, attach to package.json output
+      const attachAssets = (pkg: PackageJson) => {
+        if (options.includeAssets) {
+          (pkg as Record<string, unknown>)[options.assetsField] = assets;
+        }
+      };
+
       // Output handling
-      if (options.json) {
-        // Output to stdout as JSON
-        console.log(JSON.stringify(packageJson, null, 2));
-      } else {
-        // Write to file
-        writeFileSync(options.output, JSON.stringify(packageJson, null, 2));
-        this.log(`Package.json written to: ${options.output}`, "success");
+      if (!options.noWrite) {
+        if (options.json) {
+          // Output to stdout as JSON (CLI-oriented)
+          attachAssets(packageJson);
+          console.log(JSON.stringify(packageJson, null, 2));
+        } else {
+          // Write to file
+          attachAssets(packageJson);
+          writeFileSync(options.output, JSON.stringify(packageJson, null, 2));
+          this.log(`Package.json written to: ${options.output}`, "success");
+        }
       }
 
       // Generate report
@@ -115,11 +135,13 @@ export class DependencyPacker {
         );
       }
 
+      // Always include assets on returned object
+      attachAssets(packageJson);
       return {
         dependencies: Array.from(dependencies.entries()),
         packageJson,
         report,
-        outputFile: options.output,
+        outputFile: options.noWrite ? "" : options.output,
       };
     } catch (error) {
       const errorMessage =
@@ -135,51 +157,108 @@ export class DependencyPacker {
   ): Promise<DependencyMap> {
     this.log("Analyzing dependencies...", "debug");
 
-    const buildOptions: BuildOptions = {
-      entryPoints: [entry],
-      bundle: true,
-      platform: options.platform as "node" | "neutral" | "browser",
-      target: options.target,
-      metafile: true,
-      write: false,
-      external: options.external,
-      format: options.format as "esm" | "cjs" | "iife",
-      minify: false,
-      treeShaking: true,
-      sourcemap: false,
-      logLevel: "silent",
-    };
-
-    const result = await build(buildOptions);
-
-    if (!result.metafile) {
-      throw new Error("Failed to generate metafile during build analysis");
+    if (options.engine === "trace") {
+      return this.analyzeWithTracer(entry, options);
     }
+    if (options.engine === "asset") {
+      return this.analyzeWithAssetAnalyzer(entry, options);
+    }
+    // default to trace engine
+    return this.analyzeWithTracer(entry, options);
+  }
+
+  private async analyzeWithTracer(
+    entry: string,
+    options: InternalOptions,
+  ): Promise<DependencyMap> {
+    const files = await traceDependencies(entry, {
+      base: process.cwd(),
+      external: options.external,
+      concurrency: 256,
+    });
 
     const dependencies: DependencyMap = new Map();
     const processed = new Set<string>();
 
-    // Extract dependencies from metafile
-    for (const path in result.metafile.inputs) {
+    for (const path of files) {
       if (!path.includes("node_modules")) continue;
-
       const packageInfo = this.extractPackageInfo(path);
       if (!packageInfo) continue;
-
       const { name, version } = packageInfo;
-
       if (processed.has(name)) continue;
       processed.add(name);
-
       const resolvedVersion = this.resolveVersion(name, version);
+      if (resolvedVersion) {
+        dependencies.set(name, resolvedVersion);
+        this.log(`Found dependency: ${name}@${resolvedVersion}`, "debug");
+      }
+    }
+    return dependencies;
+  }
 
+  private async analyzeWithAssetAnalyzer(
+    entry: string,
+    options: InternalOptions,
+  ): Promise<DependencyMap> {
+    const analyzer = new AssetAnalyzer({
+      base: process.cwd(),
+      external: options.external,
+      concurrency: 256,
+      includeAssets: true,
+    });
+
+    const result = await analyzer.analyze(entry);
+    const dependencies: DependencyMap = new Map();
+    const processed = new Set<string>();
+
+    // Process discovered dependencies
+    for (const depPath of result.dependencies) {
+      if (!depPath.includes("node_modules")) continue;
+      const packageInfo = this.extractPackageInfo(depPath);
+      if (!packageInfo) continue;
+      const { name, version } = packageInfo;
+      if (processed.has(name)) continue;
+      processed.add(name);
+      const resolvedVersion = this.resolveVersion(name, version);
       if (resolvedVersion) {
         dependencies.set(name, resolvedVersion);
         this.log(`Found dependency: ${name}@${resolvedVersion}`, "debug");
       }
     }
 
+    // Process assets if they contain package references
+    for (const assetPath of result.assets) {
+      if (!assetPath.includes("node_modules")) continue;
+      const packageInfo = this.extractPackageInfo(assetPath);
+      if (!packageInfo) continue;
+      const { name, version } = packageInfo;
+      if (processed.has(name)) continue;
+      processed.add(name);
+      const resolvedVersion = this.resolveVersion(name, version);
+      if (resolvedVersion) {
+        dependencies.set(name, resolvedVersion);
+        this.log(
+          `Found dependency (asset): ${name}@${resolvedVersion}`,
+          "debug",
+        );
+      }
+    }
+
     return dependencies;
+  }
+
+  private async collectAssets(
+    entry: string,
+    options: InternalOptions,
+  ): Promise<string[]> {
+    const analyzer = new AssetAnalyzer({
+      base: process.cwd(),
+      external: options.external,
+      concurrency: 256,
+      includeAssets: true,
+    });
+    const result = await analyzer.analyze(entry);
+    return Array.from(result.assets);
   }
 
   private extractPackageInfo(modulePath: string): ExtractedPackageInfo | null {
@@ -433,8 +512,6 @@ export class DependencyPacker {
     return packer.pack(entry, options);
   }
 }
-
-export default DependencyPacker;
 export type {
   PackerOptions,
   PackageJson,

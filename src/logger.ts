@@ -4,9 +4,23 @@
  */
 
 import { appendFileSync } from "node:fs";
-import chalk from "chalk";
 
 export type LogType = "info" | "warn" | "error" | "debug" | "success";
+
+const ANSI = {
+  reset: "\x1b[0m",
+  blue: "\x1b[34m",
+  yellow: "\x1b[33m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+} as const;
+
+const useColor = !process.env.NO_COLOR;
+
+function colorize(text: string, color: keyof typeof ANSI): string {
+  if (!useColor) return text;
+  return `${ANSI[color]}${text}${ANSI.reset}`;
+}
 
 interface LoggerOptions {
   silent?: boolean;
@@ -42,7 +56,7 @@ class Logger {
       try {
         appendFileSync(this.logFile, fileMessage);
       } catch (err) {
-        console.error(chalk.red("Failed to write to log file:"), err);
+        console.error(colorize("Failed to write to log file:", "red"), err);
       }
     }
   }
@@ -90,15 +104,15 @@ class Logger {
 
     switch (type) {
       case "info":
-        return chalk.blue(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "blue");
       case "warn":
-        return chalk.yellow(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "yellow");
       case "error":
-        return chalk.red(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "red");
       case "debug":
-        return chalk.green(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "green");
       case "success":
-        return chalk.green(`${prefix} ${message}`);
+        return colorize(`${prefix} ${message}`, "green");
       default:
         return `${prefix} ${message}`;
     }
@@ -133,9 +147,6 @@ class Logger {
     this.logFile = path;
   }
 }
-
-// Export a default logger instance
-export const logger = new Logger();
 
 // Export the Logger class for custom instances
 export { Logger };

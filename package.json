@@ -14,7 +14,6 @@
     "dependency-analysis",
     "tree-shaking",
     "optimization",
-    "esbuild",
     "package-management",
     "build-tool",
     "dependency-management",
@@ -47,29 +46,30 @@
     },
     "./package.json": "./package.json"
   },
-  "packageManager": "pnpm@10.8.1",
+  "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsgo -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "prebuild": "pnpm run clean",
-    "dev": "tsx src/cli.ts",
     "test:cli": "pnpm run build && node test/test-all-options.js",
     "test:api": "pnpm run build && node test/test-programmatic-api.js",
     "test:config": "pnpm run build && node test/test-config-files.js",
-    "test:all": "pnpm run typecheck && pnpm run test:cli && pnpm run test:api && pnpm run test:config",
+    "test:all": "pnpm run check-types && pnpm run test:cli && pnpm run test:api && pnpm run test:config",
     "test:example": "pnpm run build && node examples/basic.js src/index.ts packed.json",
-    "typecheck": "tsc --noEmit",
+    "check-types": "concurrently -n transpile,types -c cyan,magenta \"pnpm run check-types:transpile\" \"tsgo -p tsconfig.json\" && rm -rf .swc",
+    "check-types:transpile": "swc app components hooks lib --out-dir .swc --ignore '**/*.d.ts' --ignore 'node_modules' --ignore '.next'",
     "prepublishOnly": "pnpm run build && pnpm run test:all",
     "prepare": "node .husky/install.mjs",
-    "lint": "pnpm dlx lint-staged"
-  },
-  "dependencies": {
-    "chalk": "^5.3.0",
-    "esbuild": "^0.25.11"
+    "lint": "eslint --fix .",
+    "lint-staged": "lint-staged"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.0",
     "@types/node": "^24.8.1",
+    "@typescript/native-preview": "7.0.0-dev.20251105.1",
+    "concurrently": "^9.2.1",
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.4.0",
