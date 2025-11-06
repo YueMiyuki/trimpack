@@ -11,7 +11,7 @@ Located in `test/unit/`, these tests cover individual modules in isolation using
 **Run unit tests:**
 
 ```bash
-npm run test:unit
+pnpm run test:unit
 ```
 
 **What's tested:**
@@ -62,7 +62,7 @@ A simple benchmark compares trimpack's dependency tracer with @vercel/nft.
 Run the 5000‑round benchmark (builds first):
 
 ```bash
-pnpm run bench:5000
+pnpm run bench
 ```
 
 Customize rounds via `ROUNDS`:

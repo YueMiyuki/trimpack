@@ -2,10 +2,11 @@
 
 /**
  * Benchmark: Compare trimpack traceDependencies vs @vercel/nft nodeFileTrace
- * Runs N rounds (default 50000) on a small entry file and reports timing.
+ * Runs N rounds (default 5000) on a small entry file and reports timing.
+ * Tip: for a quick smoke test, run with ROUNDS=100.
  */
 
-import { writeFileSync, unlinkSync } from "node:fs";
+import { writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { traceDependencies } from "../dist/core/dependency-tracer.js";
 import { AssetAnalyzer } from "../dist/core/asset-analyzer.js";
@@ -30,7 +31,10 @@ function success(msg) {
 }
 
 async function main() {
-  const rounds = Number(process.env.ROUNDS || 50000);
+  if (!existsSync("./dist/core/dependency-tracer.js")) {
+    throw new Error("Build artifacts not found. Run `npm run build` first.");
+  }
+  const rounds = Number(process.env.ROUNDS || 5000);
   const entry = join(tmpdir(), `.bench-entry-${process.pid}.js`);
 
   // Prepare a tiny entry file with builtins to keep runtime stable
@@ -44,9 +48,8 @@ async function main() {
   info(`Rounds: ${rounds}`);
 
   // Warm-up both tools to mitigate first-run JIT / module load
-  await traceDependencies(entry, { external: ["node:*"], concurrency: 256 });
+  await traceDependencies(entry, { concurrency: 256 });
   await new AssetAnalyzer({
-    base: process.cwd(),
     external: ["node:*"],
     concurrency: 256,
     includeAssets: true,
@@ -56,7 +59,7 @@ async function main() {
   // Benchmark trimpack traceDependencies
   let start = performance.now();
   for (let i = 0; i < rounds; i++) {
-    await traceDependencies(entry, { external: ["node:*"], concurrency: 256 });
+    await traceDependencies(entry, { concurrency: 256 });
   }
   const trimpackMs = performance.now() - start;
 
@@ -64,7 +67,6 @@ async function main() {
   start = performance.now();
   for (let i = 0; i < rounds; i++) {
     const analyzer = new AssetAnalyzer({
-      base: process.cwd(),
       external: ["node:*"],
       concurrency: 256,
       includeAssets: true,
@@ -113,6 +115,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`${colors.red}[ERROR]${colors.reset} ${err?.message || err}`);
+  console.error(`${colors.red}[ERROR]${colors.reset}`, err?.stack || err);
   process.exit(1);
 });
