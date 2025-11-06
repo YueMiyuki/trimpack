@@ -1,6 +1,7 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
 import {
+  promises as fsp,
   writeFileSync,
   unlinkSync,
   mkdirSync,
@@ -195,16 +196,24 @@ describe("FsCache", () => {
       let concurrent = 0;
       let maxConcurrent = 0;
 
-      const promises = Array.from({ length: 10 }, async () => {
-        concurrent++;
-        maxConcurrent = Math.max(maxConcurrent, concurrent);
-        await cache.readFile(testFile);
-        concurrent--;
-      });
+      // Bypass cache and exercise semaphore directly via the private wrap
+      type HiddenWrap = { wrap: <T>(fn: () => Promise<T>) => Promise<T> };
+      const tasks = Array.from({ length: 10 }, () =>
+        (cache as unknown as HiddenWrap).wrap(async () => {
+          concurrent++;
+          maxConcurrent = Math.max(maxConcurrent, concurrent);
+          try {
+            // Perform real I/O to ensure scheduling happens under the semaphore
+            await fsp.readFile(testFile);
+          } finally {
+            concurrent--;
+          }
+        }),
+      );
 
-      await Promise.all(promises);
-      // Due to caching, this may not hit the limit, but it shouldn't exceed it
-      assert.ok(maxConcurrent <= 10);
+      await Promise.all(tasks);
+      // Concurrency should never exceed configured limit (2)
+      assert.ok(maxConcurrent <= 2);
     });
 
     it("should handle mixed operations concurrently", async () => {

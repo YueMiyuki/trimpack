@@ -352,31 +352,31 @@ function buildOptionsFromArgs(
   config: PackerOptions,
   argvFlags: string[],
 ): PackerOptions {
+  const flagProvided = (long: string, short?: string) =>
+    argvFlags.some(
+      (arg) =>
+        arg === `--${long}` ||
+        arg === `--no-${long}` ||
+        arg.startsWith(`--${long}=`) ||
+        (short && arg === `-${short}`),
+    );
   return {
     ...config,
     output: (values.output as string) || config.output || "deps.json",
-    includeDevDependencies: Object.prototype.hasOwnProperty.call(
-      values,
-      "include-dev",
-    )
+    includeDevDependencies: flagProvided("include-dev")
       ? Boolean(values["include-dev"])
       : (config.includeDevDependencies ?? false),
-    includePeerDependencies: Object.prototype.hasOwnProperty.call(
-      values,
-      "include-peer",
-    )
+    includePeerDependencies: flagProvided("include-peer")
       ? Boolean(values["include-peer"])
       : (config.includePeerDependencies ?? false),
-    merge: Object.prototype.hasOwnProperty.call(values, "merge")
+    merge: flagProvided("merge")
       ? Boolean(values.merge)
       : (config.merge ?? false),
-    minimalOutput: Object.prototype.hasOwnProperty.call(values, "minimal")
+    minimalOutput: flagProvided("minimal")
       ? Boolean(values.minimal)
       : (config.minimalOutput ?? false),
-    json: Object.prototype.hasOwnProperty.call(values, "json")
-      ? Boolean(values.json)
-      : (config.json ?? false),
-    verbose: Object.prototype.hasOwnProperty.call(values, "verbose")
+    json: flagProvided("json") ? Boolean(values.json) : (config.json ?? false),
+    verbose: flagProvided("verbose")
       ? Boolean(values.verbose)
       : (config.verbose ?? false),
     includeAssets: (() => {

@@ -55,6 +55,27 @@ This runs:
 3. Programmatic API tests
 4. Configuration file tests
 
+## Benchmarking
+
+A simple benchmark compares trimpack's dependency tracer with @vercel/nft.
+
+Run the 5000‑round benchmark (builds first):
+
+```bash
+pnpm run bench:5000
+```
+
+Customize rounds via `ROUNDS`:
+
+```bash
+ROUNDS=20000 pnpm run bench:5000
+```
+
+The script creates a tiny entry file, warms up both tools, then reports total and per‑round timings for:
+
+- `trimpack traceDependencies`
+- `@vercel/nft nodeFileTrace`
+
 ## Continuous Integration
 
 The test suite runs automatically on:

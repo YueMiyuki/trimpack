@@ -51,6 +51,7 @@
     "build": "tsgo -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "prebuild": "pnpm run clean",
+    "bench:5000": "pnpm run build && node test/bench-5000-nft.js",
     "test:cli": "pnpm run build && node test/test-all-options.js",
     "test:api": "pnpm run build && node test/test-programmatic-api.js",
     "test:config": "pnpm run build && node test/test-config-files.js",
@@ -77,7 +78,8 @@
     "jiti": "^2.6.1",
     "lint-staged": "^16.2.6",
     "prettier": "3.6.2",
-    "typescript-eslint": "^8.46.3"
+    "typescript-eslint": "^8.46.3",
+    "@vercel/nft": "^0.27.0"
   },
   "lint-staged": {
     "**/*.{js,ts}": "eslint --fix",
