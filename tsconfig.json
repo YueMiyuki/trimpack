@@ -23,12 +23,6 @@
     "allowJs": false,
     "types": ["node"]
   },
-  "include": ["src/**/*", "vendor"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "vendor/**"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
