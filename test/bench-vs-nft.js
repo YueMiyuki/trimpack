@@ -28,10 +28,6 @@ function success(msg) {
   console.log(`${colors.green}[RESULT]${colors.reset} ${msg}`);
 }
 
-function warn(msg) {
-  console.log(`${colors.yellow}[WARN]${colors.reset} ${msg}`);
-}
-
 async function main() {
   const rounds = Number(process.env.ROUNDS || 50000);
   const entry = resolve(".bench-entry.js");
@@ -83,6 +79,8 @@ async function main() {
   }
   const nftMs = performance.now() - start;
 
+  const combinedMs = trimpackMs + assetMs;
+
   // Cleanup
   try {
     unlinkSync(entry);
@@ -94,14 +92,6 @@ async function main() {
   const perRoundTrimpack = trimpackMs / rounds;
   const perRoundAsset = assetMs / rounds;
   const perRoundNft = nftMs / rounds;
-  const fastestTotal = Math.min(trimpackMs, assetMs, nftMs);
-  const fastest =
-    fastestTotal === trimpackMs
-      ? "trimpack-trace"
-      : fastestTotal === assetMs
-        ? "trimpack-asset"
-        : "@vercel/nft";
-  const ratio = (x) => (x / fastestTotal).toFixed(2);
 
   success(
     `trimpack traceDependencies: ${trimpackMs.toFixed(2)}ms total, ${perRoundTrimpack.toFixed(4)}ms/round`,
@@ -112,8 +102,12 @@ async function main() {
   success(
     `@vercel/nft nodeFileTrace: ${nftMs.toFixed(2)}ms total, ${perRoundNft.toFixed(4)}ms/round`,
   );
-  warn(
-    `Fastest: ${fastest} (trace x${ratio(trimpackMs)}, asset x${ratio(assetMs)}, nft x${ratio(nftMs)})`,
+
+  const headToHead = combinedMs < nftMs ? "trimpack combined" : "@vercel/nft";
+  const headToHeadRatio =
+    combinedMs < nftMs ? nftMs / combinedMs : combinedMs / nftMs;
+  info(
+    `Total run time: ${headToHead} faster (~${headToHeadRatio.toFixed(2)}x)`,
   );
 }
 
