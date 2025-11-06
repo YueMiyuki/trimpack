@@ -61,7 +61,10 @@
     "prepublishOnly": "pnpm run build && pnpm run test:all",
     "prepare": "node .husky/install.mjs",
     "lint": "eslint --fix .",
-    "lint-staged": "lint-staged"
+    "lint-staged": "lint-staged",
+    "test:unit": "node --test test/*.test.ts",
+    "test:unit:watch": "node --test --watch test/*.test.ts",
+    "test:unit:coverage": "node --test --experimental-test-coverage test/*.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
