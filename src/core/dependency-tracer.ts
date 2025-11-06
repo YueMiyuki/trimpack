@@ -10,6 +10,16 @@ interface TraceOptions {
   concurrency?: number;
 }
 
+/**
+ * Trace the module dependency graph from an entry file and collect all visited file paths.
+ *
+ * @param entry - Path to the entry file to begin tracing from
+ * @param opts - Optional tracing options
+ * @param opts.base - Base directory used for realpath resolution (defaults to current working directory)
+ * @param opts.external - List of module specifiers to treat as external (excluded from tracing)
+ * @param opts.concurrency - Maximum concurrent filesystem operations (defaults to 256)
+ * @returns A Set of file paths for all modules visited while tracing from `entry`
+ */
 export async function traceDependencies(
   entry: string,
   opts: TraceOptions = {},

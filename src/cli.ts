@@ -120,6 +120,11 @@ const cliOptions: Record<string, CLIOption> = {
   },
 };
 
+/**
+ * Prints the command-line help text (usage, description, arguments, options, examples, and configuration guidance) to stdout.
+ *
+ * The help output includes a rendered list of available CLI options, example commands, a sample configuration file, and links to project documentation.
+ */
 function showHelp(): void {
   console.log(`
 ${color("📦 trimpack", "cyan")} ${color(`v${packageJson.version}`, "dim")}
@@ -201,6 +206,15 @@ function loadConfig(configPath: string): PackerOptions {
   }
 }
 
+/**
+ * Run the CLI: parse arguments, load and merge configuration, execute dependency packing, and report results.
+ *
+ * Parses command-line options and positional entry file, reads optional configuration files (including package.json),
+ * builds the final PackerOptions, invokes DependencyPacker.pack on the entry file, and prints either human-readable
+ * or JSON-formatted output. Exits the process with code 0 on success or a non-zero code on error.
+ *
+ * Side effects: reads files (config/package.json), writes to stdout/stderr, and calls process.exit().
+ */
 async function main(): Promise<void> {
   try {
     // Parse command line arguments
