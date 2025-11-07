@@ -17,22 +17,43 @@ const colors = {
   yellow: "\x1b[33m",
 };
 
+/**
+ * Log an informational message prefixed with a blue "[INFO]" tag.
+ * @param {string} message - The message to log after the "[INFO]" tag.
+ */
 function printInfo(message) {
   console.log(`${colors.blue}[INFO]${colors.reset} ${message}`);
 }
 
+/**
+ * Log a success message to the console with a green "[SUCCESS]" prefix.
+ * @param {string} message - The message text to print after the prefixed status.
+ */
 function printSuccess(message) {
   console.log(`${colors.green}[SUCCESS]${colors.reset} ${message}`);
 }
 
+/**
+ * Logs an error message to the console prefixed with a red "[ERROR]" tag.
+ * @param {string} message - The error message to log.
+ */
 function printError(message) {
   console.log(`${colors.red}[ERROR]${colors.reset} ${message}`);
 }
 
+/**
+ * Logs a warning message to the console prefixed with a yellow `[WARNING]` tag.
+ * @param {string} message - The warning text to log.
+ */
 function printWarning(message) {
   console.log(`${colors.yellow}[WARNING]${colors.reset} ${message}`);
 }
 
+/**
+ * Discover and run unit test files located in the project's test/unit directory.
+ *
+ * Scans test/unit for files ending with `.test.ts`, runs each file with Node using `jiti/register` (via `node --import jiti/register --test <file>`), prints per-test status and a colored summary, and then terminates the process: exits with code 0 when all tests pass or when no tests are present, and exits with code 1 if the test directory is missing or any test file fails.
+ */
 async function main() {
   printInfo("Running unit tests with Node.js test runner...\n");
 

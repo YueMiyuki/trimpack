@@ -190,6 +190,14 @@ function showVersion(): void {
   console.log(`trimpack v${packageJson.version}`);
 }
 
+/**
+ * Load and parse a JSON packer configuration file from the given path.
+ *
+ * If the file does not exist or cannot be parsed, an error is printed and the process exits with code 1.
+ *
+ * @param configPath - Filesystem path to a JSON configuration file
+ * @returns The parsed PackerOptions object
+ */
 function loadConfig(configPath: string): PackerOptions {
   try {
     const fullPath = resolve(configPath);
@@ -207,13 +215,12 @@ function loadConfig(configPath: string): PackerOptions {
 }
 
 /**
- * Run the CLI: parse arguments, load and merge configuration, execute dependency packing, and report results.
+ * Run the CLI: parse arguments, load configuration, execute dependency packing, and report results.
  *
- * Parses command-line options and positional entry file, reads optional configuration files (including package.json),
- * builds the final PackerOptions, invokes DependencyPacker.pack on the entry file, and prints either human-readable
- * or JSON-formatted output. Exits the process with code 0 on success or a non-zero code on error.
+ * Parses command-line options and the positional entry file, merges configuration from files and CLI flags,
+ * constructs final PackerOptions, runs the packer for the entry file, and prints either human-readable or JSON-formatted results.
  *
- * Side effects: reads files (config/package.json), writes to stdout/stderr, and calls process.exit().
+ * Side effects: reads configuration files (including package.json when present), writes to stdout/stderr, and terminates the process with an exit code (0 on success, non-zero on error).
  */
 async function main(): Promise<void> {
   try {
@@ -309,7 +316,14 @@ async function main(): Promise<void> {
 
 // --------------------
 // Helper functions
-// --------------------
+/**
+ * Load and merge configuration from standard files and an optional CLI-provided config path.
+ *
+ * Searches for configuration in this order: `.deppackrc.json`, `deppack.config.json`, then `package.json` (using its `deppack` field if present). If `values.config` is provided, that file is loaded and merged over the discovered config.
+ *
+ * @param values - Parsed CLI option values; if `values.config` is set it is treated as a path to an additional config file to merge.
+ * @returns The resulting PackerOptions after applying discovered and explicit configuration sources.
+ */
 
 function loadMergedConfig(values: Record<string, unknown>): PackerOptions {
   let config: PackerOptions = {};
@@ -347,6 +361,18 @@ function loadMergedConfig(values: Record<string, unknown>): PackerOptions {
   return config;
 }
 
+/**
+ * Construct the final PackerOptions by overlaying CLI-provided values and explicit argv flags onto a base config.
+ *
+ * This resolves option precedence (CLI flags override config when explicitly provided), applies defaults
+ * for unset values, and merges list fields (`preserveFields`, `external`) from both sources (always appending
+ * the default external entry `"node:*"`).
+ *
+ * @param values - Parsed CLI option values keyed by option name
+ * @param config - Loaded configuration to serve as the base options
+ * @param argvFlags - Raw argv tokens used to detect which flags were explicitly provided
+ * @returns The merged PackerOptions ready to be passed to the packer
+ */
 function buildOptionsFromArgs(
   values: Record<string, unknown>,
   config: PackerOptions,
@@ -413,6 +439,16 @@ function buildOptionsFromArgs(
   };
 }
 
+/**
+ * Validate and set the effective engine option for the packer.
+ *
+ * Checks for an explicit `engine` value in the provided CLI `values`, falls back to `config.engine` or `"trace"`, verifies it is one of `"trace"` or `"asset"`, and assigns the validated value to `options.engine`.
+ *
+ * @param values - Parsed CLI values used to detect an explicitly provided `engine`
+ * @param config - Merged configuration providing a fallback `engine`
+ * @param options - Final options object that will receive the validated `engine`
+ * @throws Error if the resolved engine value is not `"trace"` or `"asset"`
+ */
 function validateEngineOption(
   values: Record<string, unknown>,
   config: PackerOptions,
@@ -430,11 +466,27 @@ function validateEngineOption(
   options.engine = rawEngine as "trace" | "asset";
 }
 
+/**
+ * Run the dependency packer for a given entry file.
+ *
+ * @param entryFile - Path to the module entry file to pack
+ * @param options - Packer configuration options
+ * @returns The pack result containing discovered dependencies and related metadata
+ */
 async function runPacker(entryFile: string, options: PackerOptions) {
   const packer = new DependencyPacker(options);
   return packer.pack(entryFile);
 }
 
+/**
+ * Writes a human-readable summary of the pack result to stderr.
+ *
+ * Prints the number of dependencies, the output file path, and—when enabled—the number of external assets.
+ * When `options.verbose` is true, also prints a detailed list of dependencies and, if present, the assets list.
+ *
+ * @param result - The packing result containing `dependencies`, `outputFile`, and `packageJson` used to report counts and lists.
+ * @param options - Display controls; respects `includeAssets`, `assetsField`, and `verbose`.
+ */
 function printResults(result: PackResult, options: PackerOptions): void {
   console.error();
   console.error(color("📊 Results:", "bright"));
