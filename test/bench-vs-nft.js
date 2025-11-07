@@ -22,14 +22,29 @@ const colors = {
   yellow: "\x1b[33m",
 };
 
+/**
+ * Print an informational benchmark message to stdout with a blue `[BENCH]` prefix.
+ * @param {string} msg - Message text to print after the prefix.
+ */
 function info(msg) {
   console.log(`${colors.blue}[BENCH]${colors.reset} ${msg}`);
 }
 
+/**
+ * Print a green "[RESULT]" prefixed message to standard output.
+ * @param {string} msg - Message text to display after the prefix.
+ */
 function success(msg) {
   console.log(`${colors.green}[RESULT]${colors.reset} ${msg}`);
 }
 
+/**
+ * Run benchmarks comparing trimpack traceDependencies, AssetAnalyzer, and @vercel/nft nodeFileTrace across multiple rounds.
+ *
+ * Creates a temporary entry file, warms up each tracer, measures total and per-round timings for each tool over N rounds (configurable via the ROUNDS environment variable), reports summarized timings and a head-to-head comparison, and attempts to remove the temporary entry file on completion.
+ *
+ * @throws {Error} If required build artifacts are missing (./dist/core/dependency-tracer.js).
+ */
 async function main() {
   if (!existsSync("./dist/core/dependency-tracer.js")) {
     throw new Error("Build artifacts not found. Run `npm run build` first.");

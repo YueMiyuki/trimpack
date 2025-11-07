@@ -278,7 +278,18 @@ async function resolvePackageExports(
   return await tryResolveWithExtensions(full, fs);
 }
 
-// Prefer import/default/require (or the inverse) and handle wildcard keys
+/**
+ * Determines the export target string from a package `exports` field for a given export key.
+ *
+ * Examines `exportsField` (string or object) and returns the mapped target for `key`, preferring
+ * "import" vs "require" entry names according to `preferImport`, and falling back to wildcard
+ * patterns if no exact mapping exists.
+ *
+ * @param exportsField - The package.json `exports` value (string or object) to resolve from.
+ * @param key - The lookup key (e.g. ".", "./subpath") derived from the requested specifier.
+ * @param preferImport - If true, prefer `import` then `default` then `require`; otherwise prefer `require`.
+ * @returns The resolved export target string if found, `null` otherwise.
+ */
 function deriveExportTarget(
   exportsField: unknown,
   key: string,
@@ -308,6 +319,16 @@ function deriveExportTarget(
   return matchWildcard(exportsObj, key, order);
 }
 
+/**
+ * Selects a string target from an exports-like entry value using a prioritized key order.
+ *
+ * If `entryVal` is a string it is returned directly. If `entryVal` is an object, keys listed in `order`
+ * are checked in sequence for the first string value; if none match, the first string value found on the object is returned.
+ *
+ * @param entryVal - An exports entry, either a string target or an object mapping condition names to targets
+ * @param order - Priority list of condition keys to check (for example `["import", "default", "require"]`)
+ * @returns The chosen string target, or `null` if no string target is present
+ */
 function pickStringFromEntry(
   entryVal: unknown,
   order: string[],
@@ -327,6 +348,14 @@ function pickStringFromEntry(
   return null;
 }
 
+/**
+ * Finds and applies a wildcard mapping from a package `exports` object for the given key.
+ *
+ * @param exportsObj - An exports map whose keys may include wildcard patterns (e.g., `"./*"`). Values may be strings or conditional objects.
+ * @param key - The specific export key to match against (the package subpath, e.g., `"./lib/foo"`).
+ * @param order - Priority of conditional fields to check when an export value is an object (e.g., `["import","default","require"]`).
+ * @returns The matched target string with wildcard segments substituted when a wildcard entry matches `key`, or `null` if no wildcard match is found.
+ */
 function matchWildcard(
   exportsObj: Record<string, unknown>,
   key: string,
@@ -362,6 +391,12 @@ function matchWildcard(
   return null;
 }
 
+/**
+ * Resolve a base path by trying common JavaScript/TypeScript file extensions and index file variants.
+ *
+ * @param full - The base filepath or directory path to test (typically without extension)
+ * @returns The first existing file path that matches `full`, `full` + extensions, or `full/index` + extensions, or `null` if none exist
+ */
 async function tryResolveWithExtensions(
   full: string,
   fs: FsCache,

@@ -18,11 +18,11 @@ const ANSI = {
 const useColor = !("NO_COLOR" in process.env);
 
 /**
- * Wraps `text` with the ANSI escape codes for the given `color` when color output is enabled.
+ * Apply ANSI color codes to `text` when color output is enabled.
  *
  * @param text - The string to colorize
  * @param color - The ANSI color key to apply (one of the keys in `ANSI`)
- * @returns The input `text` wrapped with the ANSI codes for `color` when coloring is enabled, otherwise the original `text`
+ * @returns The `text` wrapped with ANSI color codes for `color` if coloring is enabled, otherwise the original `text`
  */
 function colorize(text: string, color: keyof typeof ANSI): string {
   if (!useColor) return text;
